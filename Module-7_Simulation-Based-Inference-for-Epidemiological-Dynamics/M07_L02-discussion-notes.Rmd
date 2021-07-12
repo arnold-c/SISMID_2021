@@ -1,0 +1,26 @@
+---
+title: 'Module 7: Lesson 2 Discussion Notes'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Questions
+
+## Why change from Binomial to Negative Binomial
+
+Allows for more variability, therefore can fit real data better. $k$ parameter
+is equivalent to the over-dispersion parameter. As $k$ goes to infinity, results
+in a Poisson distribution (equal mean and variance), and as $k$ goes to 0 then
+more over-dispersion as greater variance.
+
+$$
+\sigma^2 = \mu + \mu ^{(2/k)}
+$$
