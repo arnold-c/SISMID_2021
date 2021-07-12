@@ -1,0 +1,169 @@
+---
+title: 'Module 7: Lecture 3 Notes'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Particle filter
+
+-   Connects the ideas of POMP models and likelihood-based inference to the
+    lower level tasks involved in carrying out data analysis
+
+![](images/Screen%20Shot%202021-07-12%20at%201.32.42%20PM.png){width="376"}
+
+# Likelihood function
+
+## General considerations
+
+-   Likelihood function = how consistent is the data with the model?
+
+-   Stastical model is a density function $f_{Y_{1:N}}(y_{1:N}; \theta)$
+
+-   For statistical inference, have to decide which parameter values is
+    reasonable to model $y_{1:N}^*$ as a random draw from
+    $f_{Y_{1:N}}(y_{1:N}; \theta)$
+
+-   Likelihood function
+    $\ell (\theta) = \log \mathcal{L} (\theta) = \log f_{Y_{1:N}}(y_{1:N}^*; \theta)$
+
+-   Don't need to define the density of the random variable $Y_{1:N}$
+
+    -   Often more convenient/some only possible to define the model via a
+        procedure to simulate the random variable, which **implicitly** defines
+        the corresponding density $f_{Y_{1:N}}(y_{1:N}; \theta)$
+
+### Likelihood of a POMP model
+
+-   In addition to the Markov assumption, there is a conditional independence
+    assumption
+
+    -   $Y_n$ is independent of everything else in the Markov schematic, given
+        $X_n$
+
+-   When the latent process is deterministic, the only noise comes from the
+    measurement error
+
+    -   $\ell(\theta) = \sum_{n=1}^{N} \log f_{Y_n | X_n}(y_n^* | x_n (\theta); \theta)$
+
+-   Normally, the likelihood takes the form of an integral
+
+$$
+\begin{aligned}
+\mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
+&= \int f_{X_0}(x_0; \theta) \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | X_{n-1}}(x_n | x_{n-1}; \theta) dx_{0:N} 
+\end{aligned}
+$$
+
+## Computing the Likelihood
+
+### Monte Carlo likelihood by direct simulation
+
+-   Only works OK for very short time series, so don't use
+
+-   Factorize our likelihood integral
+
+    $$
+    \begin{aligned}
+    \mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
+    &= \int f_{X_0}(x_0; \theta) \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | X_{n-1}}(x_n | x_{n-1}; \theta) dx_{0:N} \\
+    &= \int \left\{ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) \right\} f_{X_{0:N}}(x_{0:N}; \theta)dx_{0:N}
+    \end{aligned}
+    $$
+
+-   Based on our refactorization of the likelihood function, we can write it as
+    an expectation
+
+$$
+\begin{aligned}
+\mathcal{L}(\theta) &= \mathbb{E} \left[ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) \right] \\
+&\approx \frac{1}{J} \sum_{j = 1}^J \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta)
+\end{aligned}
+$$
+
+where $\{ X_{0:N}^j, j = 1, ..., J\}$ is a Monte Carlo sample of size $J$ drawn
+from $f_{X_{0:N}}(x_{0:N}; \theta)$
+
+-   Don't use because scales very poorly with dimension
+
+    -   Scales exponentially with the length of the time series
+
+    -   Simulated trajectories will diverge from data and likely won't come back
+
+### Sequential Monte Carlo
+
+-   Need to refactorize our likelihood integral as the product of the
+    conditional likelihood of the $nth$ observation, given the previous
+    observations
+
+$$
+\begin{aligned}
+\mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
+&= \prod_{n=1}^N f_{Y_n | Y_{1:n-1}}(y_n^* | y_{1:n-1}^*; \theta) \\
+&= \prod_{n=1}^N \int f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^*; \theta) dx_n
+\end{aligned}
+$$
+
+-   The Markov property gives the **prediction formula**, and Baye's theorem
+    gives us the **filtering formula**
+
+    -   We have to keep track of two key distributions at each time $t_n$
+
+        -   The **prediction formula** gives the **prediction distribution** at
+            time $t_n$, using the **filtering distribution** at time $t_{n-1}$
+
+        -   The **filtering formula** gives the **filtering distribution at**
+            $t_n$, using the **prediction distribution** at time $t_n$
+
+        -   i.e., we make our best guess, and then use the data to refine our
+            best guess, before starting again.
+
+-   The **particle filter** uses Monte Carlo techniques to sequentially estimate
+    the integrals in the prediction and filtering recursions (Sequential Monte
+    Carlo - SMC)
+
+# Likelihood based inference
+
+## Methods of getting statistical uncertainty in MLE
+
+-   3 main approaches:
+
+    -   The Fisher information
+
+        -   Useful when MLE is well approximated by normal distribution and have
+            numerical 2nd derivatives of the log likelihood
+
+            -   Not typically met for POMP models
+
+    -   Profile likelihood estimation
+
+        -   Have a parameter of interest, and for each value of that parameter,
+            maximise the likelihood over all of the rest of the parameters
+
+        -   Works better when $N$ is not large and the log likelihood function
+            is not close to quadratic near its maximum
+
+    -   Bootstrap
+
+        -   Can be the best, but more onerous
+
+            -   Easy to check claims of confidence intervals
+
+        -   Usually done to check main conclusions
+
+# Geometry of the likelihood function
+
+-   Likelihood slices are different from likelihood profiles
+
+    -   A slice fixes all parameters except one, and shows the likelihood along
+        the range of the unfixed parameter
+
+-   Slices are quick and easy, so can be used early on for exploration, but may
+    give different results to the profile
