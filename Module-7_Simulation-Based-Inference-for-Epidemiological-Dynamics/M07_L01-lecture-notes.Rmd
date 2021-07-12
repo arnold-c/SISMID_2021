@@ -1,5 +1,5 @@
 ---
-title: "Module 7: Lesson 1 Notes"
+title: "Module 7: Lesson 1 Lecture Notes"
 author: "Callum Arnold"
 output: 
   html_document:
@@ -164,8 +164,7 @@ Model is to be **viewed as the stochasitc process that generated the data**
 -   `pomp::rmeasure()` given latent state, draw possible measurements from
     measurement model $f_{Y_n | X_n} (y_n | x_n; \theta)$
 
--   `pomp::dmeasure()` evaluates the density of the measurement model
-    $f_{Y_n | X_n} (y_n | x_n; \theta)$
+-   `pomp::dmeasure()` evaluates the density $f_{Y_n | X_n} (y_n | x_n; \theta)$
 
 -   `pomp::rinit()` draws from the initial distribution of the states
     $f_{X_0} (x_0; \theta)$

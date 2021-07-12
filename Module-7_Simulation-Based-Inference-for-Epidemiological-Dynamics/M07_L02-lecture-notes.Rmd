@@ -1,0 +1,463 @@
+---
+title: 'Module 7: Lesson 2 Lecture Notes'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Simulation of stochastic dynamic models
+
+## Compartmental model (SIR)
+
+-   Represented by flows between compartments
+
+    -   Specify rates
+
+-   Use a more generalized structure/notation as more flexible for later
+
+![](images/Screen%20Shot%202021-07-11%20at%206.47.57%20PM.png){width="526"}
+
+-   Here, the recovery rate $\mu_{IR}$ is constant, but the infection rate
+    $\mu_{SI}(t) = \beta I(t)$ with $\beta$ being the **contact rate**
+
+-   In the simplest form without demography, set all birth and death rates to 0
+
+-   Useful to track the cumulative number of individuals who transition between
+    compartments
+
+    -   E.g. $N_{SI}(t)$ is the cumulative number of individuals from $S$ to $I$
+        by time $t$
+
+        -    Is a **counting process**
+
+    -    Always non-decreasing in compartmental models
+
+    -   Integer valued in discrete time, real valued in continuous time
+
+-   Rewrite our standard equations using the counting processes:
+
+$$
+\begin{aligned}
+S(t) &= S(0) - N_{SI}(t) \\
+I(t) &= I(0) + N_{SI}(t) - N_{IR}(t) \\
+R(t) &= R(0) + N_{IR}(t)
+\end{aligned}
+$$
+
+### Differential equation representation (deterministic approach)
+
+-   Can write analogous ODEs:
+
+    -   Note that the rates are defined *per capita*, rather than overall, hence
+        the need to multiple by the compartment
+
+$$
+\begin{aligned}
+\frac{dN_{SI}}{dt} &= \mu_{SI}(t) S(t) \\
+\frac{dN_{IR}}{dt} &= \mu_{IR}(t) I(t)
+\end{aligned}
+$$
+
+### Continuous time Markov representation (stochastic approach)
+
+-   This can be modified into a continuous-time Markov chain model
+
+    -   Markov chain allows model to be specified from transition probabilities
+        along with initial conditions
+
+        -   Defined within a small time interval ($t \to t+\delta$) and valid in
+            the limit $\lim_{\delta \to 0} \frac{h(\delta)}{\delta} = 0$
+
+$$
+\begin{aligned}
+\Pr [ N_{SI}(t + \delta) = N_{SI}(t) + 1] &= \mu_{SI}(t)S(t)\delta + o(\delta) \\
+\Pr [ N_{SI}(t + \delta) = N_{SI}(t)] &= 1 - \mu_{SI}(t)S(t)\delta + o(\delta) \\
+\Pr [ N_{IR}(t + \delta) = N_{IR}(t) + 1] &= \mu_{IR}(t)I(t)\delta + o(\delta) \\
+\Pr [ N_{IR}(t + \delta) = N_{IR}(t)] &= 1 - \mu_{IR}(t)I(t)\delta + o(\delta)
+\end{aligned}
+$$
+
+-   This is the chance of the event that exactly one person moves from $S$ to
+    $I$ in the time interval $t \to t+\delta$
+
+    -   $o(\delta)$ turns it into a probability
+
+        -   $h(\delta) = o(\delta) \text{ to mean } \lim_{\delta \to 0} \frac{h(\delta)}{\delta} = 0$
+
+### Simple counting processes
+
+-   Assumption in making link between differential equation and Markov form
+
+-   A simple counting process can only count one event at a time
+
+-   Has limitation for what it can model
+
+    -   May want to add randomness from multiple simultaneous events e.g.
+        someone sneezing in a bus
+
+# Euler's method
+
+## Numerical solution of deterministic dynamics
+
+-   Want to be able to get an approximation $\tilde{x}(t)$ of $x(t)$ for when
+    you can't solve an ODE analytically.
+
+    -   The gradient $dx/dt$ can be analytically computed and is approximately
+        constant over a small time interval ($k\delta \le t \le (k + 1)\delta$),
+        therefore, multiply the gradient by the time interval to get the
+        approximation of the new value of $x(t)$
+
+        -   $\tilde{x}\left((k+1)\delta \right) = \tilde{x}(k\delta) + \delta h\left(\tilde{x}(k\delta)\right)$
+
+        -   Note that $\tilde{x}(t)$ is only defined when $t$ is a multiple of
+            $\delta$ (not defined continuously)
+
+        -   Works well when $\delta$ is sufficiently small
+
+-   Reasons to use Euler's over other methods that may have better convergence:
+
+    -   Simplest numerical method to solve ODES
+
+    -   Extends naturally to stochastic models, both continuous-time Markov
+        chains and stochastic differential equations (SDEs)
+
+    -   Close approximation of the numerical solutions to a continuous time
+        model is less important that would first appear
+
+        -   ODE models are only close mathematical approximations to reality at
+            reasonably large scale
+
+            -   When substantial error expected, may not be any difference
+                between using $\tilde{x}(t)$ and $x(t)$
+
+        -   When simulating, only interested in how well $\tilde{x}(t)$
+            describes the system of interest, therefore more important than the
+            original model $x(t)$
+
+-   We require $\delta$ to be small on compared to the timescale of the process
+    being modeled in continuous-time modelling
+
+## Discrete SIR model
+
+$$
+\begin{aligned}
+\Pr [ N_{SI}(t + \delta) = N_{SI}(t) + 1] &= \mu_{SI}(t)S(t)\delta + o(\delta) \\
+\Pr [ N_{IR}(t + \delta) = N_{IR}(t) + 1] &= \mu_{IR}(t)I(t)\delta + o(\delta)
+\end{aligned}
+$$
+
+-   We want a numerical solution with state variables $\tilde{S}(k\delta)$,
+    $\tilde{I}(k\delta)$, and $\tilde{R}(k\delta)$ and use out counting process
+    framework:
+
+$$
+\begin{aligned}
+\tilde{S}(k\delta) &= S(0) - \tilde{N}_{SI}(k\delta) \\
+\tilde{I}(k\delta) &= I(0) + \tilde{N}_{SI}(k\delta) - \tilde{N}_{IR}(k\delta)\\
+\tilde{R}(k\delta) &= R(0) + \tilde{N}_{IR}(k\delta)
+\end{aligned}
+$$
+
+There are at least three different ways of applying Euler's method to our
+stochastic process:
+
+1.  Poisson approximation
+
+    1.  Over a small $\delta$, rate of new infections occurs at rate
+        $\mu_{SI}S(t)$ is a Poisson distribution random variable
+
+    2.  $\tilde{N}_{SI}(t+\delta) = \tilde{N}_{SI}(t) + \text{Poisson}\left[\mu_{SI} \left(\tilde{I}(t)\right) \tilde{S}(t)\delta \right]$
+
+        1.  With mean equal to $\mu$
+
+        2.  $\mu_{SI} \left(\tilde{I}(t)\right) = \beta \tilde{I}(t)$
+
+    3.  A small issue that the Poisson distribution has a right tail that goes
+        to infinity so could end up with more infections that number of
+        susceptibles
+
+2.  Binomial approximation
+
+    1.  $\tilde{N}_{SI}(t+\delta) = \tilde{N}_{SI}(t) + \text{Binomial}\left[\tilde{S}(t), \mu_{SI} \left(\tilde{I}(t)\right) \delta\right]$
+
+        1.  With mean equal to $np$ and variance $np(1-p)$
+
+        2.  $p = \mu_{SI}\left(\tilde{I}(t)\right)\delta$
+
+    2.  Avoids the issue with Poisson distribution, but if $\delta$ is not small
+        enough then the probability $p$ can exceed 1
+
+3.  Binomial approximation with exponential transition probabilities
+
+    1.  $\tilde{N}_{SI}(t+\delta) = \tilde{N}_{SI}(t) + \text{Binomial}\left[\tilde{S}(t), 1 - \exp \{-\mu_{SI} \left(\tilde{I}(t)\right) \delta \} \right]$
+
+        1.  Probability that they **fail to escape infection** is
+            $1 - \exp \{-\mu_{SI} \left(\tilde{I}(t)\right) \delta \}$
+
+## Euler's method vs Gillespie's algorith
+
+-   [Gillespie's algorithm](https://www.youtube.com/watch?v=46ruoTTLL5g) is an
+    exact method for simulating continuous-time Markov chains
+
+    -   Often approximated using *tau-leaping* methods, which is very closely
+        related to Euler's method (sometimes called tau-leaping)
+
+-   All possible reactions are written out with probabilities associated with it
+
+    -   Random number generated selects which interaction will occur (weighted
+        based on probabilities i.e., relative counts of compartment sizes ) and
+        2nd random number generated selects when it will occur
+
+    -   Compartment numbers (or cumulative counts) are updated and process
+        restarts creating a single chain timeline
+
+    -   Repeated many times to get a distribution of chains
+
+-   Why use Euler's method that is an approximation:
+
+    -   Think about:
+
+        -   Numerical efficiency
+
+            -   Have to have good random number generator
+
+            -   Each chain has to be computed in sequence, and time will scale
+                exponentially with number of potential interactions
+
+        -   Importance of exactness when we don't know how realistic the model
+            actually is
+
+# Compartment models in `{pomp}`
+
+## Consett measles outbreak case study
+
+### Exploring up the data
+
+```{r}
+library(tidyverse)
+meas <- read_csv(paste0(
+  "https://kingaa.github.io/sbied/stochsim/",
+  "Measles_Consett_1948.csv"
+  )) %>%
+  select(week,reports=cases)
+
+meas %>% 
+  as.data.frame() %>% 
+  head()
+
+plot(meas, type = "o")
+```
+
+### SIR structure
+
+-   Treat as fixed population size (sum of compartments)
+
+-   Transitions modeled as stochastic processes
+
+    -   Purely demographic i.e. each individual in a compartment at any given
+        time faces the same risk of exiting the compartment
+
+        -   Unavoidable randomness that arises from chance events occurring in a
+            discrete and finite population
+
+-   We will use the adjusted Binomial process for the unobserved state process$$
+    \begin{aligned}
+    \Delta N_{SI} &\sim \text{Binomial}\left[S, 1 - \exp \left\{-\beta \frac{I}{N} \Delta t \right\} \right] \\
+    \Delta N_{IR} &\sim \text{Binomial}\left[I, 1 - \exp \left\{-\mu_{IR} \Delta t \right\} \right]
+    \end{aligned}
+    $$
+
+    -   Where $\mu_{SI} = \beta \frac{I}{N}$ i.e., the **Force of Infection**
+
+### SIR in R
+
+```{r}
+sir_step <- function (S, I, R, N, Beta, mu_IR, delta.t, ...) { 
+  dN_SI <- rbinom(n = 1, size = S, prob = 1 - exp(-Beta * (I/N) * delta.t)) 
+  dN_IR <- rbinom(n = 1, size = I, prob = 1 - exp(-mu_IR * delta.t))
+  S <- S - dN_SI
+  I <- I + dN_SI - dN_IR
+  R <- R + dN_IR
+  c(S = S, I = I, R = R)
+}
+```
+
+We don't know how many individuals are susceptible to begin with, but we're
+deciding that we start with a single infection (`I = 1`). We will estimate the
+fraction susceptible as a parameter in the model (`eta`).
+
+```{r}
+ sir_rinit <- function (N, eta, ...) {
+   c(S = round(N * eta), I = 1, R = round(N * (1 - eta)))
+}
+```
+
+When setting up the `{pomp}` model, we must set $\delta$ sufficiently small on
+the timescale of the day, i.e., we set to a day when the case reports are
+weekly.
+
+```{r}
+library(pomp)
+measSIR <- meas %>%
+  pomp(
+    times = "week", t0 = 0,
+    rprocess = euler(sir_step, delta.t = 1/7),
+    rinit = sir_rinit
+    ) 
+```
+
+Now we need to connect out process to our measurements - there is a probability
+associated with a case being reported! We assume that the individuals in each
+week's `reports` are those transitioning from $I$ to $R$, and presumably this
+observed process happens at a **lower transmission rate** than what happens in
+the state process.
+
+To adapt our model, we need an **accumulator variable** that keeps track of the
+incidence over each week (an observation time step - our measurements come in
+weeks but our state process is assumed to have daily time steps).
+
+```{r}
+sir_step <- function (S, I, R, H, N, Beta, mu_IR, delta.t, ...) { 
+  dN_SI <- rbinom(n = 1, size = S, prob = 1 - exp(-Beta * (I/N) * delta.t)) 
+  dN_IR <- rbinom(n = 1, size = I, prob = 1 - exp(-mu_IR * delta.t))
+  S <- S - dN_SI
+  I <- I + dN_SI - dN_IR
+  R <- R + dN_IR
+  H <- H + dN_IR
+  
+  c(S = S, I = I, R = R, H = H)
+}
+```
+
+```{r}
+sir_rinit <- function (N, eta, ...) {
+   c(S = round(N * eta), I = 1, R = round(N * (1 - eta)), H = 0)
+}
+```
+
+We can feed the `{pomp}` object back into the `pomp()` function and it updates
+the relevant parts of the object, i.e., `rprocess` and `rinit`.
+
+```{r}
+measSIR <- measSIR %>% 
+  pomp(
+    rprocess = euler(sir_step, delta.t = 1/7),
+    # accumvars resets H variable to 0 at the start of each measurement time 
+    # step
+    rinit = sir_rinit, accumvars = "H"
+  )
+```
+
+Let's now model the data as a negative binomial process i.e.,
+$\text{reports}_t = \text{NegBinom}(\rho H(t), k)$, and create either/both the
+`dmeasure` or `rmeasure` components of the `pomp()` model.
+
+```{r}
+sir_dmeas <- function (reports, H, rho, k, log, ...) { 
+  dnbinom(x = reports, size = k, mu = rho * H, log = log)
+}
+
+sir_rmeas <- function (H, rho, k, ...) { 
+  c(reports = rnbinom(n = 1, size = k, mu = rho * H))
+}
+```
+
+```{r}
+measSIR <- measSIR %>% 
+  pomp(
+    rmeasure = sir_rmeas,
+    dmeasure = sir_dmeas
+  )
+```
+
+### SIR in C snippets
+
+When simulating, we need something faster than R (which is interpreted), so
+let's use C snippets that is facilitated by the `{pomp}` package. We have to
+specify types in C, and also end each line with `;`. The `rbinom` function is
+relatively similar, but has fewer arguments
+
+```{r}
+sir_step <- Csnippet("
+  double dN_SI = rbinom(S, 1 - exp(-Beta * (I/N) * dt));
+  double dN_IR = rbinom(I, 1 - exp(-mu_IR * dt));
+  S -= dN_SI;
+  I += dN_SI - dN_IR;
+  R += dN_IR;
+  H += dN_IR;
+  ")
+```
+
+```{r}
+sir_rinit <- Csnippet("
+  S = nearbyint(eta * N);
+  I = 1;
+  R = nearbyint((1 - eta) * N);
+  H = 0;
+")
+```
+
+```{r}
+sir_dmeas <- Csnippet("
+  lik = dnbinom_mu(reports, k, rho * H, give_log);
+  ")
+
+sir_rmeas <- Csnippet("
+  reports = rnbinom_mu(k, rho * H);
+  ")
+```
+
+Specifying the model using C snippets is very similar to before, but we need to
+tell `pomp()` which variables are the states, and which are the parameters.
+
+```{r}
+measSIR <- measSIR %>%
+  pomp(
+    rprocess = euler(sir_step, delta.t = 1/7),
+    rinit = sir_rinit,
+    rmeasure = sir_rmeas,
+    dmeasure = sir_dmeas,
+    accumvars = "H",
+    statenames = c("S", "I", "R", "H"),
+    paramnames = c("Beta", "mu_IR", "N", "eta", "rho", "k")
+    )
+```
+
+### Plausibility of parameter values
+
+Basic modelling theory tells us that for an SIR infection like measles,
+$R_0 \approx \frac{L}{A}$ and $R_0 = - \frac{\log (1-f)}{f}$ where $f$ is the
+final infected fraction. For $R_0 > 5, f>0.99$.
+
+Assuming 50% reporting, given there were 521 infections, this means that
+$S_0 \approx 1042, \eta = \frac{S_0}{N} \approx 0.027$. With an infectious
+period of 2 weeks,
+$1/\mu_{IR} \approx 2 \text{wk}, \beta = \mu_{IR}R_0 \approx 7.5 \text{wk}^{-1}$
+
+Now let's simulate the data using our parameter values and see how good the
+simulations fit the data.
+
+```{r}
+sims <- measSIR %>%
+  simulate(
+    params = c(
+      Beta = 7.5, mu_IR = 0.5, rho = 0.5, k = 10,
+      eta = 0.03, N = 38000
+      ),
+    nsim = 20, format = "data.frame", include.data = TRUE
+  )
+```
+
+```{r}
+sims %>%
+  ggplot(aes(x = week, y = reports, group = .id, color = .id == "data")) +
+  geom_line() +
+  guides(color = FALSE)
+```
