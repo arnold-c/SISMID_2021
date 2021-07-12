@@ -1,0 +1,175 @@
+---
+title: "Module 7: Lesson 1 Notes"
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# What Makes Epidemiology Hard?
+
+-   Open systems so interact with 'outside' world
+
+-   Non-linear interactions
+
+-   Non-stationary:
+
+    -   Subject to trends
+
+-   Multiple possible explanations possible
+
+    -   Which are most favored by data?
+
+    -   What kinds of data are most informative?
+
+    -   Formulate and compare multiple models
+
+-   Time series useful for epi modelling:
+
+    -   Sequence of uncontrolled and non-independent, but useful experiments
+        that can give indications around underlying drivers
+
+## Obstacles to inference
+
+-   Competing sources of uncertainty:
+
+    -   measurement noise
+
+    -   process noise
+
+-   Incorporating competing covariates in mechanistically plausible manner
+
+-   Continuous time models
+
+-   Interactions in coupled systems
+
+-   Unobserved variables
+
+-   Spatial-temporal dynamics (outside of course objectives)
+
+    **Partially observed Markov process (POMP)** modelling framework used to
+    address most of these issues effectively.
+
+## Partially observed Markov process models
+
+Consider have observed data points $y_1, ..., y_N$ at times $t_1 < … < t_N$
+
+-   Modelled as a noisy, incomplete, and indirect observations of a Markov
+    process$\{ X(t), t \ge t_0 \}$
+
+    -   A POMP (hidden Markov model or state space model)
+
+-   A Markov process is when the history of the process $\{ X(s), s \le t \}$ is
+    not informative about the future of the process $\{ X(s), s \ge t \}$ ,
+    given the current value of the process $X(t)$
+
+    -   Where $s$ is all time points before $t$
+
+    -   Can seem restrictive, but you can expand the model space so that it
+        encapsulates the whole history!
+
+        -   Lots of elegant ways to force into low-dimensional representations
+            and keep Markov property
+
+-   Systems with delays (counting processes) can usually be rewritten as
+    Markovian systems (approximately)
+
+    -   Special case: Systems of differential equations $\frac{dx}{dt} = f(x)$
+        are Markovian
+
+## Structure of a POMP
+
+-   Arrows show causal relations
+
+Model is to be **viewed as the stochasitc process that generated the data**
+
+-   Whole thing has to be Markovian
+
+-   ![](images/Screen%20Shot%202021-07-11%20at%205.16.08%20PM.png){width="522"}
+
+## Notation for POMP models
+
+-   $X_n = X(t_n)$ is the latent Markov process (in continuous time)
+
+-   $X_{0:N} = (X_0 , … , X_N)$ is the collection of
+
+-   $Y_n$ is a random variable modelling the observation at time $t_n$
+
+-   Because $X_n$ is a discrete time Markov process, its probabilistic behaviour
+    is determined by its **one-step transition density**
+    $f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta)$
+
+    -   $X_n$ is the random variable, and $x_n$ is the value the random variable
+        takes
+
+-   **Measurement density** is $f_{Y_n | X_n} (y_n | x_n; \theta )$
+
+-   **Initial density** is $f_{X_0} (x_0; \theta)$
+
+    -   Where the latent state variable starts
+
+-   Transition density, measurement density, and initial density specify the
+    entire POMP model
+
+    -   **Joint density is the product**$$
+        f_{X_{0:N}, Y_{1:N}}(x_{0:N}, y_{1:N}; \theta) = f_{X_0} (x_0; \theta) \prod_{n=1}^{N} f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta) f_{Y_n | X_n} (y_n | x_n; \theta )
+        $$
+
+    -   **Marginal density** for $Y_{1:N}$ evaluated at the data $y_{1:N}^*$
+        is:$$
+        f_{Y_{1:N}} (y_{1:N}^* ; \theta ) = \int f_{X_{0:N}, Y_{1:N}} (x_{0:N}, y_{1:N}^*; \theta) dx_{0:N}
+        $$
+
+        -   Important as it's the density of the actual data
+
+        -   Integrate out the latent unknown variables from joint density
+
+-   The above equations are represented by this process schematic
+
+![](images/Screen%20Shot%202021-07-11%20at%205.46.40%20PM.png)
+
+-   The state process is Markovian if only dependent on the present i.e.
+
+    $$
+    f_{X_n | X_{0:n-1}, Y_{1:n-1}} (x_n | x_{0:n-1}, y_{1:n-1}) = f_{X_n | X_{n-1}} (x_n | x_{n-1})
+    $$
+
+    -   The full conditional density is the same as the conditional density only
+        dependent on $x_{n-1}$
+
+-   Similarly, assume that the observation $Y_n$ only depends on $X_n$ $$
+    f_{Y_n | X_{0:N}, Y_{1:n-1}} (y_n | x_{0:n}, y_{1:n-1}) = f_{Y_n | X_n} (y_n | x_n), \text{ for } n = 1, ..., N
+    $$
+
+## `{pomp}` package commands
+
+-   `pomp::rprocess()` draws from the process probability model
+    $f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta)$
+
+```{=html}
+<!-- -->
+```
+-   `pomp::dprocess()` evaluates the transition density of the process model at
+    a given point$f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta)$
+
+    -   Assumes we have a probability model that describes how we go from
+        $x_{n-1}$ to $x_n$
+
+-   `pomp::rmeasure()` given latent state, draw possible measurements from
+    measurement model $f_{Y_n | X_n} (y_n | x_n; \theta)$
+
+-   `pomp::dmeasure()` evaluates the density of the measurement model
+    $f_{Y_n | X_n} (y_n | x_n; \theta)$
+
+-   `pomp::rinit()` draws from the initial distribution of the states
+    $f_{X_0} (x_0; \theta)$
+
+Usually easier to write measurement probability model given states, rather than
+probability model for states at time $n$ given $n-1$ i.e. easier to simulate
+random processes than to evaluate their transition probabilities.
