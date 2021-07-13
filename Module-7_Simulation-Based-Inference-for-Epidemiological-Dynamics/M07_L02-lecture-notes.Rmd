@@ -35,9 +35,9 @@ knitr::opts_chunk$set(echo = TRUE)
     -   E.g. $N_{SI}(t)$ is the cumulative number of individuals from $S$ to $I$
         by time $t$
 
-        -    Is a **counting process**
+        -   Is a **counting process**
 
-    -    Always non-decreasing in compartmental models
+    -   Always non-decreasing in compartmental models
 
     -   Integer valued in discrete time, real valued in continuous time
 

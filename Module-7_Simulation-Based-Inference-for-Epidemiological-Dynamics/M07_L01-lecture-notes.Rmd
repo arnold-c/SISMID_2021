@@ -152,9 +152,8 @@ Model is to be **viewed as the stochasitc process that generated the data**
 -   `pomp::rprocess()` draws from the process probability model
     $f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta)$
 
-```{=html}
 <!-- -->
-```
+
 -   `pomp::dprocess()` evaluates the transition density of the process model at
     a given point$f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta)$
 

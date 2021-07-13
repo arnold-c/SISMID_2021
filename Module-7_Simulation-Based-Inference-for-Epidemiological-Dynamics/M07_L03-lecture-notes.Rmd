@@ -55,6 +55,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 -   Normally, the likelihood takes the form of an integral
 
+    -   Note that this is the **marginal density** for $Y_{1:N}$ evaluated at
+        the data $y_{1:N}^*$, which is itself the integral of the **joint
+        density** for $X_{1:N}, Y_{1:N}$, which is the product of the **initial
+        density \* measurement density \* one-step transition density!**
+
 $$
 \begin{aligned}
 \mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
@@ -70,21 +75,32 @@ $$
 
 -   Factorize our likelihood integral
 
-    $$
-    \begin{aligned}
-    \mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
-    &= \int f_{X_0}(x_0; \theta) \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | X_{n-1}}(x_n | x_{n-1}; \theta) dx_{0:N} \\
-    &= \int \left\{ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) \right\} f_{X_{0:N}}(x_{0:N}; \theta)dx_{0:N}
-    \end{aligned}
-    $$
+    -   Because of the Markov property, we know that all the information
+        required to predict $X_n$ is contained in $X_{n-1}$, and the full
+        conditional density is the same as the conditional density only
+        dependent on $x_{n-1}$
+        i.e.,$f_{X_n | X_{0:n-1}, Y_{1:n-1}} (x_n | x_{0:n-1}, y_{1:n-1}) = f_{X_n | X_{n-1}} (x_n | x_{n-1})$
+        )
+
+        $$
+        \begin{aligned}
+        \mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
+        &= \int f_{X_0}(x_0; \theta) \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | X_{n-1}}(x_n | x_{n-1}; \theta) dx_{0:N} \\
+        &= \int \left\{ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) \right\} f_{X_{0:N}}(x_{0:N}; \theta)dx_{0:N}
+        \end{aligned}
+        $$
 
 -   Based on our refactorization of the likelihood function, we can write it as
     an expectation
 
+    -   Note we are only calculating the expectation of the **measurement
+        density** of the data i.e. evaluate at each trajectory and average
+
 $$
 \begin{aligned}
-\mathcal{L}(\theta) &= \mathbb{E} \left[ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta) \right] \\
-&\approx \frac{1}{J} \sum_{j = 1}^J \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | x_n ; \theta)
+\mathcal{L}(\theta) &= \mathbb{E} \left[ \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | X_n ; \theta) \right] \\
+\text{where } X_{0:N} &\sim f_{X_{0:N}}(x_{0:N}; \theta) \\
+&\approx \frac{1}{J} \sum_{j = 1}^J \prod_{n = 1}^N f_{Y_n | X_n}(y_n^* | X_n^j ; \theta)
 \end{aligned}
 $$
 
@@ -101,33 +117,104 @@ from $f_{X_{0:N}}(x_{0:N}; \theta)$
 
 -   Need to refactorize our likelihood integral as the product of the
     conditional likelihood of the $nth$ observation, given the previous
-    observations
+    observation
 
 $$
 \begin{aligned}
 \mathcal{L}(\theta) &= f_{Y_{1:N}}(y_{1:N}^*; \theta) \\
 &= \prod_{n=1}^N f_{Y_n | Y_{1:n-1}}(y_n^* | y_{1:n-1}^*; \theta) \\
-&= \prod_{n=1}^N \int f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^*; \theta) dx_n
+&= \prod_{n=1}^N \int f_{Y_n | X_n}(y_n^* | x_n ; \theta) f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^*; \theta) dx_n \\
+\text{where } f_{X_1 | Y_{1:0}} &= f_{X_1}
 \end{aligned}
 $$
 
--   The Markov property gives the **prediction formula**, and Baye's theorem
+-   The Markov property gives the **prediction formula**, and Bayes' theorem
     gives us the **filtering formula**
 
-    -   We have to keep track of two key distributions at each time $t_n$
+    -   Prediction formula
 
-        -   The **prediction formula** gives the **prediction distribution** at
-            time $t_n$, using the **filtering distribution** at time $t_{n-1}$
+        $$
+        f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^* ; \theta) = \int f_{X_n | X_{n-1}} (x_n | x_{n-1}; \theta) f_{X_{n-1} | Y_{1:n-1}}(x_{n-1} | y_{y:n-1}^* ; \theta) dx_{n-1}
+        $$
 
-        -   The **filtering formula** gives the **filtering distribution at**
-            $t_n$, using the **prediction distribution** at time $t_n$
+    -   Filtering formula
 
-        -   i.e., we make our best guess, and then use the data to refine our
-            best guess, before starting again.
+$$
+\begin{aligned}
+f_{X_n | Y_{1:n}}(x_n | y_{1:n}^* ; \theta) &= f_{X_n | Y_n, Y_{1:n-1}}(x_n | y_n^*, y_{1:n-1}^* ; \theta) \\
+&= \frac{f_{Y_n | X_n}(y_n^* |x_n; \theta) f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^*; \theta)}{\int f_{Y_n | X_n}(y_n^* |u_n; \theta) f_{X_n | Y_{1:n-1}}(u_n | y_{1:n-1}^*; \theta) du_n}
+\end{aligned}
+$$
+
+-   Therefore we have to keep track of two key distributions at each time $t_n$
+
+    -   The **prediction formula** gives the **prediction distribution
+        (**$f_{X_n | Y_{1:n-1}}(x_n | y_{1:n-1}^* ; \theta)$) at time $t_n$,
+        using the **filtering distribution** at time $t_{n-1}$
+
+    -   The **filtering formula** gives the **filtering distribution
+        (**$f_{X_n | Y_{1:n}}(x_n | y_{1:n}^* ; \theta)$) at $t_n$, using the
+        **prediction distribution** at time $t_n$
+
+    -   i.e., we make our best guess, and then use the data to refine our best
+        guess, before starting again.
 
 -   The **particle filter** uses Monte Carlo techniques to sequentially estimate
     the integrals in the prediction and filtering recursions (Sequential Monte
     Carlo - SMC)
+
+#### Intuition behind SMC
+
+This information is based on the MATLAB video
+[here](https://www.youtube.com/watch?v=NrzmH_yerBU).
+
+-   Let's imagine we have a robot that is in a room and can take distance
+    measurements to the wall in front of it within a range of angles, using
+    LIDAR
+
+    -   It doesn't know where it is in the room, but it has the distance
+        measurements, subject to measurement noise
+
+-   Start by simulating a bunch of possible locations for the robot (particles)
+
+-   At each particle, take the measurement in front of it, and compare all of
+    these measurements to the actual observed measurement
+
+    -   How likely is it that the robot is at that particle's location given the
+        **prediction** and the **observed data**?
+
+-   Create a probability density function (i.e. surface) that shows the
+    likelihood of the robot being at all particle positions
+
+-   Resample the particles based on weights that are tied to the pdf
+
+    -   i.e., higher likelihood areas from time 1 are will have more particles
+        generated at time 2
+
+-   The robot moves from time 1 to time 2, and a new measurement is taken
+
+    -   The robot is able to measure how far and where it moved, with a
+        measurement error
+
+-   Shift the resampled points for time 2 by the amount the robot moved
+
+    -   The amount each point shifts is drawn from a distribution of the
+        movement measurement, therefore accounting for measurement error here!
+
+-   Now we compare the distances the resampled points at time 2 to the actual
+    measurement observed at time 2
+
+    -   Only the ones that were accurate in times 1 **and** 2 are kept!
+
+        -   The inaccurate ones in time 1 were filtered out, and the same goes
+            for time 2
+
+-   Keep repeating the above steps (resample, measure, move resamples, compare
+    particle predictions to observations, filter)
+
+-   Eventually, we will have a concentration of particles that were able to
+    follow the robot from the start to the finish, and all others will have been
+    filtered out!
 
 # Likelihood based inference
 
