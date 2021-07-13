@@ -1,0 +1,168 @@
+---
+title: 'Module 7: Lesson 3 Exercises'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set up
+
+## Loading packages and data
+
+```{r}
+library(tidyverse)
+library(pomp)
+options(stringsAsFactors=FALSE)
+stopifnot(packageVersion("pomp")>="3.4")
+set.seed(1350254336)
+```
+
+```{r}
+source("https://kingaa.github.io/sbied/pfilter/model.R")
+```
+
+# Exercise 3.2. Cost of a particle-filter calculation
+
+> -   How much computer processing time does a particle filter take?
+>
+> ```{=html}
+> <!-- -->
+> ```
+> -   How does this scale with the number of particles? Form a conjecture based
+>     upon your understanding of the algorithm. Test your conjecture by running
+>     a sequence of particle filter operations, with increasing numbers of
+>     particles (Np), measuring the time taken for each one using system.time.
+>     Plot and interpret your results.
+
+```{r}
+times <- c()
+for (i in c(100, 500, seq(1000, 5000, by = 1000), 10000)) {
+  time_start <- Sys.time()
+  measSIR %>% pfilter(Np = i)
+  time_end <- Sys.time()
+  times <- c(times, time_end - time_start)
+}
+plot(c(100, 500, seq(1000, 5000, by = 1000), 10000), times, pch = 20)
+
+m1 <- lm(times ~ c(100, 500, seq(1000, 5000, by = 1000), 10000))
+summary(m1)
+coef(m1)
+print(times / c(100, 500, seq(1000, 5000, by = 1000), 10000))
+```
+
+# Exercise 3.3. Log likelihood estimation
+
+> Here are some desiderata for a Monte Carlo log likelihood approximation:
+>
+> -   It should have low Monte Carlo bias and variance.
+> -   It should be presented together with estimates of the bias and variance so
+>     that we know the extent of Monte Carlo uncertainty in our results.
+> -   It should be computed in a length of time appropriate for the
+>     circumstances.
+>
+> Set up a likelihood evaluation for the measles model, choosing the numbers of
+> particles and replications so that your evaluation takes approximately one
+> minute on your machine.
+>
+> -   Provide a Monte Carlo standard error for your estimate.
+> -   Comment on the bias of your estimate.
+> -   Use doParallel to take advantage of multiple cores on your computer to
+>     improve your estimate.
+
+```{r}
+library(doParallel)
+library(doRNG)
+registerDoParallel()
+registerDoRNG(652643293)
+foreach (i=1:20, .combine=c) %dopar% {
+  library(tidyverse)
+  library(pomp)
+  measSIR %>% pfilter(Np=10000)
+} -> pf
+logLik(pf) -> ll
+logmeanexp(ll,se=TRUE)
+# To avoid a (more?) biased estimate, we exponentiate, take the mean, then calculate
+# the log, rather than taking the mean to the log-likelihood. (vs. mean(ll))
+# The amount of bias can be estimated based on the standard error.
+
+```
+
+# Exercise 3.4. One-dimensional likelihood slice
+
+> Compute several likelihood slices in the η direction.
+
+```{r}
+bake(file="like-slice.rds",{
+  slice_design(
+    center=coef(measSIR),
+    eta=rep(seq(from=0.01,to=0.2,length=40),each=3)
+  ) -> p
+  library(doParallel)
+  library(doRNG)
+  
+  registerDoParallel()
+  registerDoRNG(108028909)
+  foreach (theta=iter(p,"row"), .combine=rbind,
+           .inorder=FALSE) %dopar%
+    {
+      library(pomp)
+      measSIR %>% pfilter(params=theta,Np=5000) -> pf
+      theta$loglik <- logLik(pf)
+      theta
+    } -> p
+}) -> p
+
+library(tidyverse)
+
+p %>% 
+  gather(variable,value,eta) %>%
+  filter(variable==slice) %>%
+  ggplot(aes(x=value,y=loglik,color=variable))+
+  geom_point()+
+  facet_grid(~variable,scales="free_x")+
+  guides(color="none")+
+  labs(x="parameter value",color="")
+```
+
+# Exercise 3.5. Two-dimensional likelihood slice
+
+> Compute a slice of the likelihood in the β-η plane.
+
+```{r}
+bake(file="pfilter-grid1.rds",{
+  expand.grid(
+    Beta=rep(seq(from=10,to=30,length=20),each=3),
+    eta=rep(seq(from=0.01,to=0.2,length=20),each=3),
+    mu_IR=0.5,rho=0.5,k=10,N=38000
+  ) -> p
+  library(doParallel)
+  library(doRNG)
+  
+  registerDoParallel()
+  registerDoRNG(421776444)
+  foreach (theta=iter(p,"row"), .combine=rbind,
+           .inorder=FALSE) %dopar%
+    {
+      library(tidyverse)
+      library(pomp)
+      measSIR %>% pfilter(params=theta,Np=5000) -> pf
+      theta$loglik <- logLik(pf)
+      theta
+    } -> p
+  p %>% arrange(Beta,mu_IR)
+})-> p
+
+p %>% 
+  mutate(loglik=ifelse(loglik>max(loglik)-25,loglik,NA)) %>%
+  ggplot(aes(x=Beta,y=eta,z=loglik,fill=loglik))+
+  geom_tile(color=NA)+
+  scale_fill_gradient()+
+  labs(x=expression(beta),y=expression(eta))
+```

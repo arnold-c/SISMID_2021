@@ -318,7 +318,7 @@ multiple_parms <- parameters %>%
 ```
 
 ```{r}
-multiple_parms$plots[2]
+multiple_parms$plots
 ```
 
 # Exercise 2.4
