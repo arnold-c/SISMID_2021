@@ -1,0 +1,730 @@
+---
+title: 'Module 7: Lecture 4 Notes'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Plug and play property
+
+-   Inference that calls `rprocess` but not `dprocess` are *plug and play.*
+
+    -   Includes all modern Monte Carlo methods
+
+-   Simulation based historically includes all the history of the time series,
+    unlike particle filtering which considers and simulates observation
+    intervals sequentially
+
+-   Expectation-maximum and MCMC are **not** *plug and play*
+
+    -   Have theoretical convergence issues for nonlinear POMP models, therefore
+        are not good for our use cases
+
+# Full information vs feature-based methods
+
+-   Full information
+
+    -   Based on the likelihood for the full data (likelihood based inference
+        can be frequentist or Bayesian)
+
+    -   Statistically efficient
+
+-   Feature based
+
+    -   Consider a summary statistic (which is a function of the data) or use
+        alternative to likelihood
+
+    -   Not statistically efficient
+
+        -   May be acceptable trade off for computational efficiency
+
+    -   Hard to find good summary stastics
+
+        -   Don't know which information you are losing when not efficient
+
+# Bayesian vs frequentist approaches
+
+-   Notes about Bayesian methods
+
+    -   *Plug and play* Bayesian methods now exist
+
+        -   particle MCMC (pMCMC)
+
+        -   approximate Bayesian computation
+
+    -   Specifying priors is both a strength and weakness of Bayesian methods
+
+    -   Likelihood surface for nonlinear POMP modles often contains nonlinear
+        ridges and variations in curvature
+
+        -   Question the appropriateness of independent priors derived from
+            expert opinion on marginal distributions of parameters
+
+![](images/Screen%20Shot%202021-07-13%20at%2010.28.37%20AM.png)
+
+# Iterated filtering in theory
+
+-   Shown to solve hard likelihood-based inference methods that are not
+    tractable for available Bayesian methods
+
+-   Iterated filtering algorithm
+
+    -   Each iteration consists of a particle filter constructed on the
+        parameter vectors, and each particles takes a random walk
+
+    -   At the end of each time step, the collection of parameter vectors is
+        recycled as the starting parameters for the next iteration
+
+    -   The random walk variance decreases at each iteration
+
+        -   Required as otherwise the parameters are changing whereas in the
+            model they should be fixed
+
+    -   Can be shown to maximise the likelihood assume slow enough decrease in
+        variance
+
+-   In practice:
+
+    -   For each iteration:
+
+        -   Perturb the initial parameters at time 0
+
+        -   Draw from initial density function that are based on those pertubed
+            parameters
+
+        -   Apply a particle filter through full time series:
+
+            -   Compute prediction component of parameters by perturbing them
+
+            -   Prediction component for the state produced by simulating them
+                using the prediction parameters and the filtering distribution
+                from the step above
+
+            -   Apply weights by evaluating the data at the predicted particles
+
+            -   Draw indices with probabilities proportional to weights
+
+            -   Resample
+
+        -   Set parameter swarm to where we ended
+
+        -   Restart cycle
+
+-   If you run a particle filter without perturbations
+
+    -   Particle filter will improve the likelihood up to a point
+
+        -   Runs out of 'raw material', similar to natural selection
+
+            -   Perturbations add 'mutations' that help find a global maximum
+
+# Iterated filtering in practice
+
+```{r}
+library(pomp)
+library(tidyverse)
+
+set.seed(1350254336)
+```
+
+```{r}
+courseurl <- "https://kingaa.github.io/sbied/"
+datafile <- "mif/Measles_Consett_1948.csv"
+
+read_csv(paste0(courseurl,datafile)) %>%
+  select(week,reports=cases) %>%
+  filter(week<=42) -> dat
+
+dat %>%
+  ggplot(aes(x=week,y=reports))+
+  geom_line()
+```
+
+```{r}
+sir_step <- Csnippet("
+double dN_SI = rbinom(S,1-exp(-Beta*I/N*dt));
+double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
+S -= dN_SI;
+I += dN_SI - dN_IR;
+H += dN_IR;
+")
+
+sir_init <- Csnippet("
+S = nearbyint(eta*N);
+I = 1;
+H = 0;
+")
+
+dmeas <- Csnippet("
+lik = dnbinom_mu(reports,k,rho*H,give_log);
+")
+
+rmeas <- Csnippet("
+reports = rnbinom_mu(k,rho*H);
+")
+```
+
+```{r}
+measSIR <- dat %>%
+  pomp(
+    times="week",t0=0,
+    rprocess=euler(sir_step,delta.t=1/7),
+    rinit=sir_init,
+    rmeasure=rmeas,
+    dmeasure=dmeas,
+    accumvars="H",
+    partrans=parameter_trans(
+      log=c("Beta"),
+      logit=c("rho","eta")
+    ),
+    statenames=c("S","I","H"),
+    paramnames=c("Beta","mu_IR","eta","rho","k","N")
+  )
+```
+
+## Testing the code
+
+Let's simulate some data based on our starting parameters
+
+```{r}
+params <- c(Beta=20,mu_IR=2,rho=0.5,k=10,eta=0.1,N=38000)
+
+y <- measSIR %>%
+  simulate(params=params,nsim=10,format="data.frame")
+```
+
+```{r}
+y %>% 
+  ggplot(aes(x=week,y=reports,group=.id,color=factor(.id)))+
+  geom_line()+
+  scale_color_brewer(type="qual",palette=3)+
+  guides(color="none")
+```
+
+```{r}
+pf <- measSIR %>%
+  pfilter(Np=1000,params=params)
+```
+
+```{r}
+plot(pf)
+```
+
+Here is the diagnostic plot of the initial model we fit to the data. The top is
+the actual cases, the 2nd (ess) is the effective sample sizes i.e. number of
+independent particles, and the 3rd is the conditional log likelihood of the
+observations (based on the preceeding ones). ess near to 0 indicates that we
+have an issue with the model specification!
+
+## Estimating problem
+
+Let's start by fixing the infectious period to 2 weeks to make things a bit
+simpler
+
+```{r}
+fixed_params <- c(N=38000, mu_IR=2, k=10)
+coef(measSIR, names(fixed_params)) <- fixed_params
+coef(measSIR)
+```
+
+```{r}
+library(foreach)
+library(doParallel)
+registerDoParallel()
+library(doRNG)
+registerDoRNG(625904618)
+```
+
+### Testing a particle filter
+
+Let's first check that we can run a particle filter before we run the iterated
+filter
+
+```{r}
+pf <- foreach(i=1:10,.combine=c) %dopar% {
+  library(pomp)
+  measSIR %>% pfilter(params=params,Np=10000)
+}
+
+L_pf <- pf %>% 
+  logLik() %>% 
+  logmeanexp(se=TRUE)
+
+L_pf
+```
+
+```{r}
+# This extracts the parameter values and log likelihoods and writes to file
+pf[[1]] %>% coef() %>% bind_rows() %>%
+  bind_cols(loglik=L_pf[1],loglik.se=L_pf[2]) %>%
+  write_csv("measles_params.csv")
+```
+
+### Setting up the IF
+
+IF is a local (stochastic) search. Because of the perturbations, it 'sees' a
+smoother version of the likelihood.
+
+We need to choose some parameters for our function:
+
+-   `rw.sd`
+
+    -   The magnitude of the perturbations made to the parameters
+
+-   `cooling.fraction.50`
+
+    -   The schedule on which that magnitude (`rw.sd`) will decrease with
+        progressive iterations
+
+        -   After 50 `mif` iterations will reduce to this fraction of their
+            original magnitude
+
+        -   $\eta$ is only to do with the initial conditions therefore only has
+            an impact on the very first iteration. Setting it as an intial value
+            parameter (`ivp`) we only apply the perturbations to the first
+            filter.
+
+Need to transform parameters:
+
+-   $\beta$ needs to be log transformed
+
+    -   
+
+-   $\rho$ and $\eta$ need to be logit transformed
+
+    -   Must be between 0 and 1
+
+```{r}
+registerDoRNG(482947940)
+foreach(i=1:20,.combine=c) %dopar% {
+  # Need to reload library as parallelizing
+    library(pomp)
+    library(tidyverse)
+    measSIR %>%
+      mif2(
+        params = params,
+        Np=2000, Nmif=100,
+        partrans=parameter_trans(log="Beta",logit=c("rho","eta")),
+        paramnames=c("Beta","rho","eta"),
+        cooling.fraction.50=0.5,
+        rw.sd=rw.sd(Beta=0.02, rho=0.02, eta=ivp(0.02))
+        #
+      )
+  } -> mifs_local
+```
+
+### IF diagnostics
+
+The iterated filter creates a `pomp` object that is a list of different runs,
+therefore we need to `melt` them into a long dataframe to plot.
+
+```{r}
+mifs_local %>%
+  traces() %>%
+  melt() %>%
+  ggplot(aes(x=iteration,y=value,group=L1,color=factor(L1)))+
+  geom_line()+
+  guides(color="none")+
+  facet_wrap(~variable,scales="free_y")
+```
+
+The likelihood continues to increase due to poor starting parameter guesses and
+the stochastic nature of the MC algorithm
+
+### Estimating the likelihood
+
+Our final filtering iteration will give us an approximation of the likelihood at
+the resulting point estimate, but can't really be used for inference:
+
+-   Perturbations are applied after the last filtering iteration
+-   Normally need to have more particles!
+
+Instead, we need to evaluate the likelihood with its se, using replicated
+particle filters at each point estimate.
+
+```{r}
+registerDoRNG(900242057)
+
+foreach(mf=mifs_local,.combine=rbind) %dopar% {
+    library(pomp)
+    library(tidyverse)
+    evals <- replicate(10, logLik(pfilter(mf,Np=10000)))
+    ll <- logmeanexp(evals,se=TRUE)
+    mf %>% coef() %>% bind_rows() %>%
+      bind_cols(loglik=ll[1],loglik.se=ll[2])
+  } -> results
+```
+
+```{r}
+pairs(~loglik+Beta+eta+rho,data=results,pch=16)
+```
+
+Based on this pair plot, lower values of $\beta$ and $\rho$, and higher values
+of $\eta$, are associated with higher log likelihoods.
+
+This is a good start to exploring the parameter space, as it shows the hint of a
+ridge in the likelihood surface ($\beta$ vs $\eta$ negatively correlated, and
+oppositely correlated with the log likelihood, therefore higher values of one
+need to be compensated by lower values of the other).
+
+Let's save these parameter values to our database.
+
+```{r}
+read_csv("measles_params.csv") %>%
+  bind_rows(results) %>%
+  arrange(-loglik) %>%
+  write_csv("measles_params.csv")
+```
+
+# Searching the MLE
+
+Likelihood surfaces corresponding to POMP models are often highly complicated,
+so we need to choose many starting parameter guesses! If there is convergence
+between the conclusions drawn from each of these starting values, then we have
+some confidence of a global maximum.
+
+To start, we need to create a box that contains all sensible parameter values,
+and we can do this with the `runif_design()` function from `{pomp}`. We could
+construct a `pomp` object and run the `mif` function on that, but we'll just
+reuse one of the runs we've already done!
+
+We'll start with 300 starting values for the parameters specified in
+`runif_design()`. Each search starts with an initial run of 50 iterations before
+doing a further 100.
+
+```{r}
+set.seed(2062379496)
+
+runif_design(
+  lower=c(Beta=5,rho=0.2,eta=0),
+  upper=c(Beta=80,rho=0.9,eta=1),
+  nseq=300
+) -> guesses
+
+mf1 <- mifs_local[[1]]
+```
+
+```{r}
+results <- foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% { 
+  library(pomp)
+  library(tidyverse)
+  mf1 %>%
+    # update the parameters from the original iterated filtering model
+    mif2(params=c(unlist(guess),fixed_params)) %>%
+    # Do another 100 mif iterations starting from the end of the last ones
+    mif2(Nmif=100) -> mf
+  
+  # Estimate likelihood using 5000 particles and the particle filter
+  ll <- replicate(
+      10,
+      mf %>% pfilter(Np=5000) %>% logLik()
+    ) %>%
+    logmeanexp(se=TRUE)
+    
+  mf %>% 
+    coef() %>% 
+    bind_rows() %>%
+    bind_cols(loglik=ll[1], loglik.se=ll[2]) 
+  }
+```
+
+Unlike the iterated filtering code, we're only saving the end points, therefore
+cannot make the same diagnostic plots. Let's compare our results from the
+starting values (grey) vs the IF2 estimates (red).
+
+```{r}
+read_csv("measles_params.csv") %>%
+  filter(loglik>max(loglik)-50) %>%
+  bind_rows(guesses) %>%
+  mutate(type=if_else(is.na(loglik),"guess","result")) %>%
+  arrange(type) -> all
+
+pairs(~loglik+Beta+eta+rho, data=all, pch=16, cex=0.3,
+      col=ifelse(all$type=="guess",grey(0.5),"red"))
+```
+
+Let's project all of the estimates over one parameter (the "poor man's profile
+likelihood").
+
+```{r}
+all %>%
+  filter(type=="result") %>%
+  filter(loglik>max(loglik)-10) %>%
+  ggplot(aes(x=eta,y=loglik))+
+  geom_point()+
+  labs(
+    x=expression("eta"),
+    title="poor man’s profile likelihood"
+  )
+```
+
+## Profile likelihood
+
+Unfortunately we can't use the global search to determine the profile
+likelihood: the "poor man's likelihood" gives us a quick overview. Let's go
+through an example with $\eta$.
+
+### Profiling $\eta$
+
+We're going to need to create a box for all the parameters that we need to
+maximise. Here we're going to look at the range of reasonable values that were
+found in the global search, and given our previous search explored values
+outside of the original box, this one is bigger!
+
+```{r}
+read_csv("measles_params.csv") %>%
+  filter(loglik>max(loglik)-20,loglik.se<2) %>%
+  sapply(range) -> box
+box
+```
+
+Now we set up the dataframe where each row specifies a dataframe of parameters.
+We will give a sequence of $\eta$ values, and provide the other parameters from
+the box we just specified. We are specifying $\eta$ values manually to make sure
+we are calculating the profile likelihood over a wide enough range of values.
+
+```{r}
+set.seed(1196696958)
+profile_design(
+  eta=seq(0.01,0.95,length=40),
+  lower=box[1,c("Beta","rho")],
+  upper=box[2,c("Beta","rho")],
+  nprof=15, type="runif"
+) -> guesses
+
+plot(guesses)
+```
+
+Now that we are profiling, we'll do an independent sequence of iterated
+filtering operations at each of these points. We'll keep $\eta$ fixed, hence it
+is missing from the `rw.sd` call. We'll also provide a smaller cooling fraction
+as we can be more confident in the search.
+
+```{r}
+foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
+    library(pomp)
+    library(tidyverse)
+    mf1 %>%
+      mif2(params=c(unlist(guess),fixed_params),
+           rw.sd=rw.sd(Beta=0.02,rho=0.02)) %>%
+      mif2(Nmif=100,cooling.fraction.50=0.3) -> mf
+    replicate(
+      10,
+      mf %>% pfilter(Np=5000) %>% logLik()) %>%
+      logmeanexp(se=TRUE) -> ll
+    mf %>% coef() %>% bind_rows() %>%
+      bind_cols(loglik=ll[1],loglik.se=ll[2])
+  } -> results
+```
+
+```{r}
+read_csv("measles_params.csv") %>%
+  bind_rows(results) %>%
+  filter(is.finite(loglik)) %>%
+  arrange(-loglik) %>%
+  write_csv("measles_params.csv")
+```
+
+```{r}
+read_csv("measles_params.csv") %>%
+  filter(loglik>max(loglik)-10) -> all
+
+pairs(~loglik+Beta+eta+rho,data=all,pch=16)
+```
+
+Note, some of these points are from the global search. The same for the profile
+likelihood below.
+
+```{r}
+results %>%
+  ggplot(aes(x=eta,y=loglik))+
+  geom_point()
+```
+
+Let's remove the values that aren't likely.
+
+```{r}
+results %>%
+  filter(is.finite(loglik)) %>%
+  group_by(round(eta,5)) %>%
+  filter(rank(-loglik)<3) %>%
+  ungroup() %>%
+  filter(loglik>max(loglik)-20) %>%
+  ggplot(aes(x=eta,y=loglik))+
+  geom_point()
+```
+
+Now let's compute the 95% (approximate) confidence interval using Wilk's
+theorem.
+
+```{r}
+maxloglik <- max(results$loglik,na.rm=TRUE)
+ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
+
+results %>%
+  filter(is.finite(loglik)) %>%
+  group_by(round(eta,5)) %>%
+  filter(rank(-loglik)<3) %>%
+  ungroup() %>%
+  ggplot(aes(x=eta,y=loglik))+
+  geom_point()+
+  geom_smooth(method="loess",span=0.25)+
+  geom_hline(color="red",yintercept=ci.cutoff)+
+  lims(y=maxloglik-c(5,0))
+```
+
+#### Profile trace
+
+The model compensates across the range of $\eta$ by varying other parameter
+values. It can be useful to understand how it does this. This could tell us the
+valid reasons for the other parameters e.g. $\rho$.
+
+```{r}
+results %>%
+  filter(is.finite(loglik)) %>%
+  group_by(round(eta,5)) %>%
+  filter(rank(-loglik)<3) %>%
+  ungroup() %>%
+  mutate(in_ci=loglik>max(loglik)-1.92) %>%
+  ggplot(aes(x=eta,y=rho,color=in_ci))+
+  geom_point()+
+  labs(
+    color="inside 95% CI?",
+    x=expression(eta),
+    y=expression(rho),
+    title="profile trace"
+)
+```
+
+### Profiling $\rho$
+
+We have a good idea of where $\rho$ could be, but the only way to tell is to do
+a profile on $\rho$. However, rather than starting again from the beginning,
+let's exploit the fact we have a good range of values for starting point. In the
+example below, let's pick the top 10 by likelihood.
+
+```{r}
+read_csv("measles_params.csv") %>%
+  group_by(cut=round(rho,2)) %>%
+  filter(rank(-loglik)<=10) %>%
+  ungroup() %>%
+  select(-cut,-loglik,-loglik.se) -> guesses
+```
+
+```{r}
+foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% { library(pomp)
+library(tidyverse)
+mf1 %>%
+    mif2(params=guess,
+         rw.sd=rw.sd(Beta=0.02,eta=ivp(0.02))) %>%
+    mif2(Nmif=100,cooling.fraction.50=0.3) %>%
+    mif2() -> mf
+  replicate(
+    10,
+    mf %>% pfilter(Np=5000) %>% logLik()) %>%
+    logmeanexp(se=TRUE) -> ll
+  mf %>% coef() %>% bind_rows() %>%
+    bind_cols(loglik=ll[1],loglik.se=ll[2])
+} -> results
+```
+
+```{r}
+results %>%
+  filter(is.finite(loglik)) -> results
+
+pairs(~loglik+Beta+eta+rho,data=results,pch=16)
+```
+
+Now let's create the profile of $\rho$. We'll pick out the 3 highest log
+likelihood values for each value of $\rho$.
+
+```{r}
+results %>%
+  filter(loglik>max(loglik)-10,loglik.se<1) %>%
+  group_by(round(rho,2)) %>%
+  filter(rank(-loglik)<3) %>%
+  ungroup() %>%
+  ggplot(aes(x=rho,y=loglik))+
+  geom_point()+
+  geom_hline(
+    color="red",
+    yintercept=max(results$loglik)-0.5*qchisq(df=1,p=0.95)
+  )
+```
+
+```{r}
+ results %>%
+  filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>%
+  summarize(min=min(rho),max=max(rho)) -> rho_ci
+```
+
+# Suppose the parameters are not what we expect
+
+## Making predictions
+
+-   Parameter estimations are themselves a kind of prediction that can be tested
+    against other estimates for the parameters derived from other data sources.
+
+-   For example, if we plot regress the cumulative cases of measles (an
+    immunizing infection) against the cumulative number of births, the gradient
+    will tell us the reporting rate!
+
+-   For out measles data, we get about 60% - well outside of the 95% CI of our
+    prediction.
+
+-   Why the difference?
+
+    -   Model assumptions inconsistent with the data
+
+        -   Effective infectious period might shorter than the clinical
+            infectious period
+
+-   To relax this assumption, let's fix $\rho$ and determine which value of
+    $\mu_{IR}$ is consistent with this
+
+## Global search
+
+```{r}
+set.seed(55266255)
+runif_design(
+  lower=c(Beta=5,mu_IR=0.2,eta=0),
+  upper=c(Beta=80,mu_IR=5,eta=0.99),
+  nseq=1000
+) %>% mutate(
+    rho=0.6,
+    k=10,
+    N=38000
+) -> guesses
+```
+
+In the below code, we'll keep $\rho$ constant and estimate $\mu_{IR}$,
+designated by its random walk.
+
+```{r}
+library(pomp)
+library(tidyverse)
+measSIR %>%
+  mif2(params=guess, Np=2000, Nmif=100,
+       cooling.fraction.50=0.5,
+       partrans=parameter_trans(
+         log=c("Beta","mu_IR"),
+         logit="eta"), paramnames=c("Beta","mu_IR","eta"),
+       rw.sd=rw.sd(Beta=0.02,mu_IR=0.02,eta=ivp(0.02))) -> mf
+```
+
+```{r}
+mf %>% mif2(
+    Nmif=100,rw.sd=rw.sd(Beta=0.01,mu_IR=0.01,eta=ivp(0.01))
+  ) %>%
+  mif2(
+    Nmif=100,
+    rw.sd=rw.sd(Beta=0.005,mu_IR=0.005,eta=ivp(0.005))
+) -> mf
+```

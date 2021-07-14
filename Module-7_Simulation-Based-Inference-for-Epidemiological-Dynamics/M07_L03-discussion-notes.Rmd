@@ -1,0 +1,68 @@
+---
+title: 'Module 7: Lesson 3 Discussion'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Can we go over bias in likelihood and log likelihood functions when calculating standard error. Are both biased, and the calculation from the  likelihood reducing bias.
+
+# Are profiles and slices just a tool to explore our parameter space
+
+Slices are just used to explore the data and the parameter space, as long as a
+profile can be computed.
+
+# When are profiles useful
+
+A profile will tell if a parameter is useful by showing if the likelihood
+changes over the parameter values. If there is no information (similar to Fisher
+information) then the profile will be flat. The steeper the curve of the
+profile, the more information it contains. The profile
+
+# Scaling of standard errors with number of particles
+
+-   se's decrease as you increase the number of particles
+
+-   With a small number of particles, increasing the number of replicates can
+    lead to odd things
+
+    -   When there are insufficient particles can get long tails that you are
+        more likely to sample the tails
+
+# How to decide number of particles
+
+-   Want to end up with se on log likelihood less than one
+
+-   More data = larger Monte Carlo error
+
+-   Generally variance is linear in number of data points (ideally)
+
+    -   More data can lead to Monte Carlo error on log likelihood \> 1
+
+-   As extra data comes, increasing information on parameters
+
+    -   When data gets really informative you increase the precision on your
+        question
+
+# Bias 
+
+# Jenson's inequality
+
+-   If you have a linear function, if unbiased, will be unbiased for linear
+    combination
+
+-   If non-linear function with known curvature then if concave, you can know
+    the bias
+
+    -   Jenson's tells you direction of bias
+
+-   Particle filter is unbiased for the likelihood
+
+-   

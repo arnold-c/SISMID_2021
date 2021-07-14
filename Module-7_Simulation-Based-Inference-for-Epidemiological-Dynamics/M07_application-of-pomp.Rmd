@@ -1,0 +1,113 @@
+---
+title: "Application of pomp to research questions"
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Emergence of diseases
+
+> I.e. for emergent infection, don't know when the index case actually was
+
+-   Limited, poor, data
+
+    -   Mis and underdiagnosis
+
+    -   Changing case definition
+
+    -   Confounders with availability with diagnostic testing
+
+-   Generally, all emerging infections have similar dynamics
+
+-   Hard to develop a model that you're comfortable with
+
+    -   Have a lot of flexibility with a POMP model
+
+-   Hard to estimate starting point in stochastic epidemic process
+
+    -   Tend to stutter along for a while before taking off
+
+# Incorporating effects of time-varying interventions into models
+
+-   Interested in simulating the model
+
+    -   POMP can be easily simulated
+
+-   Can put in whatever variables you want into the model
+
+    -   Typically as a covariate
+
+# Stochastic vs deterministic model
+
+-   Can have deterministic POMP model
+
+    -   Stochastic model is a special case of a deterministic model
+
+-   Many people think deterministic is simpler and good place to start
+
+    -   Deterministic is an approximation of a stochastic model
+
+-   Fitting deterministic models to long complex dynamics hard to do
+
+    -   Implies certain amount of predictability
+
+        -   e.g. within exponentially growing section of the timeseries
+
+# How different strains of bacteria interact, and different levels of reporting bias
+
+-   Model the process that gives rise to the data and the bias
+
+    -   Have true status as latent
+
+    -   Observation as biased version of that
+
+-   Adjust the model to incorporate the potential bias-introducing mechanism
+
+# Re-emergence of mumps
+
+-   Dealing with transient dynamics as decline in transmission after vaccination
+    then re-emergence
+
+-   Initials section of the data isn't age-structured, then introduced later
+
+    -   Time-varying measurement model
+
+-   POMP makes no assuming measurements are fixed
+
+    -   Can put in a switch that says before time t, value is this, after is
+        that
+
+# Way to use POMP models where you're interested in who in particular is infected
+
+-   Could use individual based model
+
+    -   Too computationally complex
+
+-   Range of discretizations that can be made
+
+    -   e.g. Age structure
+
+    -   Are there differences in contact structures
+
+# Multiple observed variables
+
+-   Not really an issue to incorporate into the model
+
+-   As the amount of information goes up, the particle filter becomes more
+    expensive to run precisely
+
+-   If you have cases with hospitalizations, pass in dataframe with two diffent
+    columns!
+
+    -   Build a measurement model that accounts for this
+
+    -   Need to think is the states are independent or not
+
+<https://www.pnas.org/content/118/9/e2019716118/tab-article-info>
