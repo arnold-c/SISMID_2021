@@ -1,0 +1,278 @@
+---
+title: 'Module 7: Lesson 4 Exercises'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercise 4.1. Fitting the SEIR model
+
+> Following the template above, estimate the parameters and likelihood of the
+> SEIR model you implemented in the earlier lessons. You will need to tailor the
+> intensity of your search to the computational resources at your disposal. In
+> particular, choose the number of starts, number of particles employed, and the
+> number of IF2 iterations to perform in view of the size and speed of your
+> machine.
+
+## a) First conduct a local search and then a global search using the multi-stage, multi-start method displayed above.
+
+```{r}
+library(tidyverse)
+library(pomp)
+stopifnot(getRversion() >= "4.0")
+stopifnot(packageVersion("pomp")>="3.0")
+set.seed(1350254336)
+
+source("https://kingaa.github.io/sbied/pfilter/model.R")
+```
+
+```{r}
+seir_step <- Csnippet("
+  double dN_SE = rbinom(S,1-exp(-Beta*I/N*dt));
+  double dN_EI = rbinom(E,1-exp(-mu_EI*dt));
+  double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
+  S -= dN_SE;
+  E += dN_SE - dN_EI;
+  I += dN_EI - dN_IR;
+  R += dN_IR;
+  H += dN_IR;
+")
+
+
+seir_init <- Csnippet("
+  S = nearbyint(eta*N);
+  E = 0;
+  I = 1;
+  R = nearbyint((1-eta)*N);
+  H = 0;
+")
+
+measSIR %>%
+  pomp(
+    rprocess=euler(seir_step,delta.t=1/7),
+    rinit=seir_init,
+    paramnames=c("N","Beta","mu_EI","mu_IR","rho","eta"),
+    statenames=c("S","E","I","R","H")
+  ) -> measSEIR
+```
+
+```{r}
+spy(measSEIR)
+```
+
+### Local search
+
+```{r}
+params <- c(Beta=20,mu_IR=2,mu_EI = 1/8, rho=0.5,k=10,eta=0.1,N=38000)
+params
+```
+
+```{r}
+foreach(i=1:20,.combine=c) %dopar% { library(pomp)
+library(tidyverse)
+measSEIR %>%
+    mif2(
+      partrans=parameter_trans(logit=c("rho", "eta")),
+      paramnames = c("Beta", "mu_IR", "rho", "k", "eta", "N", "mu_EI"),
+      Np=2000, Nmif=50,
+      cooling.fraction.50=0.5,
+      rw.sd=rw.sd(Beta=0.02, rho=0.02, eta=ivp(0.02))
+)
+} -> mifs_local
+```
+
+```{r}
+mifs_local %>%
+  traces() %>%
+  melt() %>%
+  ggplot(aes(x=iteration,y=value,group=L1,color=factor(L1)))+
+  geom_line()+
+  guides(color="none")+
+  facet_wrap(~variable,scales="free_y")
+```
+
+```{r}
+foreach(mf=mifs_local,.combine=rbind) %dopar% {
+    library(pomp)
+    library(tidyverse)
+    evals <- replicate(10, logLik(pfilter(mf,Np=5000)))
+    ll <- logmeanexp(evals,se=TRUE)
+    mf %>% coef() %>% bind_rows() %>%
+      bind_cols(loglik=ll[1],loglik.se=ll[2])
+  } -> results
+```
+
+```{r}
+pairs(~loglik+Beta+eta+rho,data=results,pch=16)
+```
+
+### Global search
+
+```{r}
+set.seed(2062379496)
+
+runif_design(
+  lower=c(Beta=5,rho=0.2,eta=0),
+  upper=c(Beta=80,rho=0.9,eta=1),
+  nseq=50
+) -> guesses
+
+mf1 <- mifs_local[[1]]
+```
+
+```{r}
+fixed_params <- c(N=38000, mu_IR=2, mu_EI = 1/8, k=10)
+fixed_params
+```
+
+```{r}
+foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
+    library(pomp)
+    library(tidyverse)
+    mf1 %>%
+      mif2(params=c(unlist(guess),fixed_params)) %>%
+      mif2(Nmif=100) -> mf
+    replicate(
+      10,
+      mf %>% pfilter(Np=5000) %>% logLik()
+    ) %>%
+      logmeanexp(se=TRUE) -> ll
+    mf %>% coef() %>% bind_rows() %>%
+      bind_cols(loglik=ll[1],loglik.se=ll[2])
+  } -> results
+```
+
+```{r}
+results %>%
+  mutate(iteration = row_number()) %>% 
+  select(-loglik.se) %>% 
+  pivot_longer(
+    cols = c(Beta:loglik),
+    names_to = "variable",
+    values_to = "value"
+  ) %>% 
+  ggplot(aes(x=iteration,y=value))+
+  geom_line()+
+  guides(color="none")+
+  facet_wrap(~variable,scales="free_y")
+```
+
+```{r}
+read_csv("measles_params.csv") %>%
+  filter(loglik>max(loglik)-50) %>%
+  bind_rows(guesses) %>%
+  mutate(type=if_else(is.na(loglik),"guess","result")) %>%
+  arrange(type) -> all
+
+pairs(~loglik+Beta+eta+rho, data=all, pch=16, cex=0.3,
+      col=ifelse(all$type=="guess",grey(0.5),"red"))
+```
+
+```{r}
+all %>%
+  filter(type=="result") %>%
+  filter(loglik>max(loglik)-10) %>%
+  ggplot(aes(x=eta,y=loglik))+
+  geom_point()+
+  labs(
+    x=expression("eta"),
+    title="poor man’s profile likelihood"
+  )
+```
+
+## b) How does the maximized likelihood compare with what we obtained for the SIR model?
+
+## c) How do the parameter estimates differ?
+
+# Exercise 4.2. Modify the measurement model
+
+> In all of the foregoing, we have assumed a fixed value of the dispersion
+> parameter k, of the negative binomial measurement model. Estimate k along with
+> the other parameters. How much is the fit improved? How do the MLE values of
+> the other parameters change?
+
+```{r}
+set.seed(2062379496)
+
+runif_design(
+  lower=c(Beta=5,rho=0.2,eta=0, k=1),
+  upper=c(Beta=80,rho=0.9,eta=1, k=30),
+  nseq=100
+) -> guesses
+
+mf2 <- mifs_local[[1]]
+```
+
+```{r}
+fixed_params <- fixed_params[names(fixed_params) != "k"]
+fixed_params
+```
+
+```{r}
+foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
+    library(pomp)
+    library(tidyverse)
+    mf2 %>%
+      mif2(params=c(unlist(guess),fixed_params)) %>%
+      mif2(Nmif=100) -> mf
+    replicate(
+      10,
+      mf %>% pfilter(Np=5000) %>% logLik()
+    ) %>%
+      logmeanexp(se=TRUE) -> ll
+    mf %>% coef() %>% bind_rows() %>%
+      bind_cols(loglik=ll[1],loglik.se=ll[2])
+  } -> results
+```
+
+# Exercise 4.3. Construct a profile likelihood
+
+> How strong is the evidence about the contact rate, β, given this model and
+> data? Use mif2 to construct a profile likelihood. Due to time constraints, you
+> may be able to compute only a preliminary version. It is also possible to
+> profile over the basic reproduction number, R0 = β/μIR. Is this more or less
+> well determined than β for this model and data?
+
+# Exercise 4.4. Checking the source code
+
+## Part 1
+
+> Check the source code for the measSIR pomp object, using the spy command. Does
+> the code implement the model described?
+>
+> For various reasons, it can be surprisingly hard to make sure that the written
+> equations and the code are perfectly matched. Papers should be written to be
+> readable, and therefore people rarely choose to clutter papers with numerical
+> details which they hope and believe are scientifically irrelevant.
+
+### (a) What problems can arise due to the conflict between readability and reproducibility?
+
+### (b) What solutions are available?
+
+## Part 2
+
+> Suppose that there is an error in the coding of rprocess and suppose that
+> plug-and-play statistical methodology is used to infer parameters. As a
+> conscientious researcher, you carry out a simulation study to check the
+> soundness of your inference methodology on this model. To do this, you use
+> simulate to generate realizations from the fitted model and checking that your
+> parameter inference procedure recovers the known parameters, up to some
+> statistical error.
+
+## (a) Will this procedure help to identify the error in rprocess?
+
+### (b) If not, how might you debug rprocess?
+
+### (c) What research practices help minimize the risk of errors in simulation code?
+
+# Exercise 4.5: Choosing the algorithmic settings for IF2
+
+> Have a look at our advice on [tuning
+> IF2](https://kingaa.github.io/sbied/mif/if2_settings.html).

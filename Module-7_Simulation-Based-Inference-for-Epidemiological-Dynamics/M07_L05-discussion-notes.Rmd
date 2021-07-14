@@ -1,0 +1,120 @@
+---
+title: 'Module 7: Lesson 5 Discussion'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Multiple time series
+
+-   E.g. Fitting for separate cities
+-   `{panelpomp}` can fit them separately
+-   Hard to fit models where some parameters are shared between time series
+
+# Forecasting
+
+-   Usually forecast forward using filtered distribution of current latent
+    variables, so the past data is needed for filtering but future data is not
+    required [this can lead to issues when the model has time-varying covariates
+    that are not known in the future]
+
+# What to do when things are time-varying
+
+-   Can place in model as time-varying covariate
+
+-   Can be difficult with forecasting as you don't always know how it changes
+
+    -   Sometimes it can be predicted e.g. vaccination rate, that you can
+        evaluation like normal scenario modelling
+
+-   A time-varying parameter isn't formally a parameter
+
+    -   Usually it's a time-varying latent state
+
+        -   Only covariate when you've measured it
+
+        -   Your parameters would be when and how it starts to move
+
+-   Class of semi-mechanistic models
+
+    -   Might have model where beta is fixed or:
+
+    -   Could expect beta changes with time
+
+        -   Flexible parameteric model where beta changes over time
+
+    -   People could replace beta parameter with state variable called beta
+
+        -   Takes random walk
+
+        -   Fit return fit and how parameter might have changed over past
+            history
+
+            -   Only imposing some kind of smoothness
+
+        -   Simulating from the model becomes hard
+
+            -   What does it actually represent as beta not under control
+
+# Profile over $R_0$
+
+-   R0 expressed as beta/mu
+
+-   Reparameterise model to include R0
+
+    -   replace either beta or mu
+
+-   Measles model coded with R0 as parameter
+
+-   Advantage to frequentist
+
+    -   free to change around parameters
+
+-   Bayesian applies prior to parameter
+
+    -   have to make transformation on the prior
+
+# Causal inference
+
+-   We're fitting models, but want to make causal interpretation of findings
+
+    -   Important for policy making
+
+-   In classic mechanistic model, confounding (omitted mechanism bias) exists
+    and needs to be account for
+
+-   Still exists in POMP models, but to account for this
+
+    -   Look for other sources of information that corroborates your results
+
+-   Misconception
+
+    -   goal is to propose model, fit to data, act as if model is correct
+
+    -   Every model is incorrect!
+
+-   What's the justification of fitting simple models
+
+    -   Stochasticity helps accomodate for gap between mechanisms we have and
+        the data we see
+
+        -   No guarantee it's doing a good job
+
+        -   **Allows us to fit model to data and quantify discrepancies**
+
+    -   Quantify discrepancies between what we think is going on and what's
+        actually going on
+
+        -   Which aspects are useful, and which aspects need further exploration
+
+-   Look for natural experiment (covariate unrelated to time series changes)
+
+    -   Time-series data is good for this as it sets it up as a natural
+        experiment relative to previous section in time

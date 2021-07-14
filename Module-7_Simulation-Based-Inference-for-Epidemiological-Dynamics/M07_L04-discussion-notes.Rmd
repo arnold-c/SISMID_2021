@@ -1,0 +1,72 @@
+---
+title: 'Module 7: Lesson 3 Discussion'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# What is a good range of perturbation size?
+
+-   0.02 usually works well
+
+    -   Change the value of the parameter by 1-2% (on the log scale) generally
+        doesn't have much of an effect over the dynamics of the transmission
+
+        -   Can do in some non-linear systems like the ones we're interested in
+
+-   IF explores the parameter space on the scale of the random walk
+    perturbations
+
+    -   If perturbations are too big compared to the scale of the parameter
+        variation then you'll just pass over the hills
+
+        -   The reductions in the random walk will eventually correct for this!
+
+    -   If it starts too small, it'll take a long time to keep going up hill
+
+# Why not constrain parameters
+
+-   Let the data speak
+
+    -   If data want to be in *a priori* range, then no reason to constrain
+
+    -   If data fit best when not in *a priori* range, you want to know about
+        it!
+
+-   Use transformation facility in `{pomp}` to constrain parameters
+
+# What's the difference between genetic algorithms and IF
+
+-   IF is a type of genetic algorithm
+
+# Global search to estimate k
+
+-   k is a measurement error parameter
+-   Usually wide range of starting parameters are bad values therefore low
+    values of k
+-   As the search finds 'higher likelihood ground' k decreases
+
+# If you have a single parameter that is hard to optimize
+
+-   Profile over it!
+-   Can only do it once or twice as too computationally difficult, but it can
+    help
+
+# How to speed up
+
+-   first reduce number of particles (sometime 1k is fine)
+
+    -   Few thousand usually sufficient
+
+    -   Needing many thousand normally model isn't good
+
+        -   However number of particles will increase with model size
+
+-   

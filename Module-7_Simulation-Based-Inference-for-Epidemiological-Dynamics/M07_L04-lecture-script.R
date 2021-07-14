@@ -4,77 +4,20 @@ stopifnot(getRversion() >= "4.0")
 stopifnot(packageVersion("pomp")>="3.0")
 set.seed(1350254336)
 
-library(tidyverse)
+source("https://kingaa.github.io/sbied/pfilter/model.R")
 
-courseurl <- "https://kingaa.github.io/sbied/"
-datafile <- "mif/Measles_Consett_1948.csv"
-
-read_csv(paste0(courseurl,datafile)) %>%
-  select(week,reports=cases) %>%
-  filter(week<=42) -> dat
-
-dat %>%
-  ggplot(aes(x=week,y=reports))+
-  geom_line()
-
-
-
-library(pomp)
-
-sir_step <- Csnippet("
-double dN_SI = rbinom(S,1-exp(-Beta*I/N*dt));
-double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
-S -= dN_SI;
-I += dN_SI - dN_IR;
-H += dN_IR;
-")
-
-sir_init <- Csnippet("
-S = nearbyint(eta*N);
-I = 1;
-H = 0;
-")
-
-dmeas <- Csnippet("
-lik = dnbinom_mu(reports,k,rho*H,give_log);
-")
-
-rmeas <- Csnippet("
-reports = rnbinom_mu(k,rho*H);
-")
-
-dat %>%
-  pomp(
-    times="week",t0=0,
-    rprocess=euler(sir_step,delta.t=1/7),
-    rinit=sir_init,
-    rmeasure=rmeas,
-    dmeasure=dmeas,
-    accumvars="H",
-    partrans=parameter_trans(
-      log=c("Beta"),
-      logit=c("rho","eta")
-    ),
-    statenames=c("S","I","H"),
-    paramnames=c("Beta","mu_IR","eta","rho","k","N")
-  ) -> measSIR
-
-params <- c(Beta=20,mu_IR=2,rho=0.5,k=10,eta=0.1,N=38000)
-
-measSIR %>%
-  simulate(params=params,nsim=10,format="data.frame") -> y
 
 
 measSIR %>%
-  pfilter(Np=1000,params=params) -> pf
+  pfilter(Np=1000) -> pf
 
 
 fixed_params <- c(N=38000, mu_IR=2, k=10)
+coef(measSIR,names(fixed_params)) <- fixed_params
 
 library(foreach)
 library(doParallel)
 registerDoParallel()
-
 
 
 
@@ -84,7 +27,7 @@ registerDoRNG(625904618)
 tic <- Sys.time()
 foreach(i=1:10,.combine=c) %dopar% {
   library(pomp)
-  measSIR %>% pfilter(params=params,Np=10000)
+  measSIR %>% pfilter(Np=5000)
 } -> pf
 
 pf %>% logLik() %>% logmeanexp(se=TRUE) -> L_pf
@@ -96,17 +39,21 @@ pf[[1]] %>% coef() %>% bind_rows() %>%
   write_csv("measles_params.csv")
 
 
-registerDoRNG(482947940)
+## What is this 'bake' function?
+## See https://kingaa.github.io/sbied/pfilter/bake.html
+## for an explanation.
 bake(file="local_search.rds",{
+  registerDoRNG(482947940)
   foreach(i=1:20,.combine=c) %dopar% {
     library(pomp)
     library(tidyverse)
     measSIR %>%
       mif2(
-        params=params,
         Np=2000, Nmif=50,
         cooling.fraction.50=0.5,
-        rw.sd=rw.sd(Beta=0.02, rho=0.02, eta=ivp(0.02))
+        rw.sd=rw.sd(Beta=0.02, rho=0.02, eta=ivp(0.02)),
+        partrans=parameter_trans(log="Beta",logit=c("rho","eta")),
+        paramnames=c("Beta","rho","eta")
       )
   } -> mifs_local
   attr(mifs_local,"ncpu") <- getDoParWorkers()
@@ -136,12 +83,12 @@ mifs_local %>%
 
 
 
-registerDoRNG(900242057)
 bake(file="lik_local.rds",{
+  registerDoRNG(900242057)
   foreach(mf=mifs_local,.combine=rbind) %dopar% {
     library(pomp)
     library(tidyverse)
-    evals <- replicate(10, logLik(pfilter(mf,Np=10000)))
+    evals <- replicate(10, logLik(pfilter(mf,Np=5000)))
     ll <- logmeanexp(evals,se=TRUE)
     mf %>% coef() %>% bind_rows() %>%
       bind_cols(loglik=ll[1],loglik.se=ll[2])
@@ -184,7 +131,7 @@ bake(file="global_search.rds",{
       mif2(Nmif=100) -> mf
     replicate(
       10,
-      mf %>% pfilter(Np=10000) %>% logLik()
+      mf %>% pfilter(Np=5000) %>% logLik()
     ) %>%
       logmeanexp(se=TRUE) -> ll
     mf %>% coef() %>% bind_rows() %>%
@@ -208,8 +155,8 @@ read_csv("measles_params.csv") %>%
   mutate(type=if_else(is.na(loglik),"guess","result")) %>%
   arrange(type) -> all
 
-pairs(~loglik+Beta+eta+rho, data=all,
-      col=ifelse(all$type=="guess",grey(0.5),"red"),pch=16)
+pairs(~loglik+Beta+eta+rho, data=all, pch=16, cex=0.3,
+      col=ifelse(all$type=="guess",grey(0.5),"red"))
 
 all %>%
   filter(type=="result") %>%
@@ -238,8 +185,8 @@ plot(guesses)
 
 
 mf1 <- mifs_local[[1]]
-registerDoRNG(830007657)
 bake(file="eta_profile.rds",{
+  registerDoRNG(830007657)
   foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
     library(pomp)
     library(tidyverse)
@@ -249,7 +196,7 @@ bake(file="eta_profile.rds",{
       mif2(Nmif=100,cooling.fraction.50=0.3) -> mf
     replicate(
       10,
-      mf %>% pfilter(Np=10000) %>% logLik()) %>%
+      mf %>% pfilter(Np=5000) %>% logLik()) %>%
       logmeanexp(se=TRUE) -> ll
     mf %>% coef() %>% bind_rows() %>%
       bind_cols(loglik=ll[1],loglik.se=ll[2])
@@ -326,8 +273,8 @@ read_csv("measles_params.csv") %>%
 
 
 mf1 <- mifs_local[[1]]
-registerDoRNG(2105684752)
 bake(file="rho_profile.rds",{
+  registerDoRNG(2105684752)
   foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
     library(pomp)
     library(tidyverse)
@@ -338,7 +285,7 @@ bake(file="rho_profile.rds",{
       mif2() -> mf
     replicate(
       10,
-      mf %>% pfilter(Np=10000) %>% logLik()) %>%
+      mf %>% pfilter(Np=5000) %>% logLik()) %>%
       logmeanexp(se=TRUE) -> ll
     mf %>% coef() %>% bind_rows() %>%
       bind_cols(loglik=ll[1],loglik.se=ll[2])
@@ -378,7 +325,7 @@ results %>%
 set.seed(55266255)
 runif_design(
   lower=c(Beta=5,mu_IR=0.2,eta=0),
-  upper=c(Beta=80,mu_IR=5,eta=0.95),
+  upper=c(Beta=80,mu_IR=5,eta=0.99),
   nseq=1000
 ) %>%
   mutate(
@@ -391,10 +338,8 @@ runif_design(
 
 
 
-
-
-registerDoRNG(610408798)
 bake(file="global_search2.rds",{
+  registerDoRNG(610408798)
   foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
     library(pomp)
     library(tidyverse)
@@ -406,19 +351,16 @@ bake(file="global_search2.rds",{
              logit="eta"), paramnames=c("Beta","mu_IR","eta"),
            rw.sd=rw.sd(Beta=0.02,mu_IR=0.02,eta=ivp(0.02))) -> mf
     mf %>%
-      mif2(Nmif=100) %>%
-      mif2(Nmif=100) %>%
-      mif2(Nmif=100) -> mf
-    mf %>%
-      mif2(Nmif=100,cooling.fraction.50=0.3) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.3) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.3) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.1) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.1) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.1) -> mf
+      mif2(
+        Nmif=100,rw.sd=rw.sd(Beta=0.01,mu_IR=0.01,eta=ivp(0.01))
+      ) %>%
+      mif2(
+        Nmif=100,
+        rw.sd=rw.sd(Beta=0.005,mu_IR=0.005,eta=ivp(0.005))
+      ) -> mf
     replicate(
       10,
-      mf %>% pfilter(Np=10000) %>% logLik()
+      mf %>% pfilter(Np=5000) %>% logLik()
     ) %>% logmeanexp(se=TRUE) -> ll
     mf %>% coef() %>% bind_rows() %>%
       bind_cols(loglik=ll[1],loglik.se=ll[2])
@@ -439,9 +381,8 @@ read_csv("measles_params.csv") %>%
 read_csv("measles_params.csv") %>%
   filter(loglik>max(loglik)-20) -> all
 
-pairs(~loglik+rho+mu_IR+Beta+eta,data=all,pch=16)
-
-pairs(~loglik+rho+mu_IR+Beta+eta,data=results,pch=16)
+pairs(~loglik+rho+mu_IR+Beta+eta,data=all,pch=16,cex=0.3,
+      col=if_else(round(all$rho,3)==0.6,1,4))
 
 results %>%
   filter(loglik>max(loglik)-20,loglik.se<1) %>%
@@ -462,7 +403,7 @@ read_csv("measles_params.csv") %>%
 
 set.seed(610408798)
 profile_design(
-  mu_IR=seq(0.5,2,by=0.1),
+  mu_IR=seq(0.2,2,by=0.1),
   lower=box[1,c("Beta","eta")],
   upper=box[2,c("Beta","eta")],
   nprof=100, type="runif"
@@ -475,8 +416,8 @@ profile_design(
 
 
 
-registerDoRNG(610408798)
 bake(file="mu_IR_profile1.rds",{
+  registerDoRNG(610408798)
   foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
     library(pomp)
     library(tidyverse)
@@ -486,9 +427,9 @@ bake(file="mu_IR_profile1.rds",{
            paramnames=c("Beta","eta"), cooling.fraction.50=0.5,
            rw.sd=rw.sd(Beta=0.02,eta=ivp(0.02))
            ) %>% mif2(Nmif=100) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.3) %>%
-      mif2(Nmif=100,cooling.fraction.50=0.1) -> mf
-    replicate(10,mf %>% pfilter(Np=100000) %>% logLik()) %>%
+      mif2(Nmif=100,rw.sd=rw.sd(Beta=0.01,eta=ivp(0.01))) %>%
+      mif2(Nmif=100,rw.sd=rw.sd(Beta=0.005,eta=ivp(0.005))) -> mf
+    replicate(10,mf %>% pfilter(Np=5000) %>% logLik()) %>%
       logmeanexp(se=TRUE) -> ll
     mf %>% coef() %>% bind_rows() %>%
       bind_cols(loglik=ll[1],loglik.se=ll[2])
@@ -508,7 +449,7 @@ read_csv("measles_params.csv") %>%
 
 results %>%
   group_by(round(mu_IR,2)) %>%
-  filter(rank(-loglik)<3) %>%
+  filter(rank(-loglik)<=1) %>%
   ungroup() %>%
   ggplot(aes(x=mu_IR,y=loglik))+
   geom_point()+

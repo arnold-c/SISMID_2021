@@ -36,7 +36,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 -   Don't need to define the density of the random variable $Y_{1:N}$
 
-    -   Often more convenient/some only possible to define the model via a
+    -   Often more convenient/sometimes only possible to define the model via a
         procedure to simulate the random variable, which **implicitly** defines
         the corresponding density $f_{Y_{1:N}}(y_{1:N}; \theta)$
 

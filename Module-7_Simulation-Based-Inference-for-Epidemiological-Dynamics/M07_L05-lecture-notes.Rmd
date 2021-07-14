@@ -1,0 +1,522 @@
+---
+title: 'Module 7: Lecture 5 Notes'
+author: "Callum Arnold"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+## Challenges
+
+-   Want to be able to include covariates e.g. age/rainfall etc
+
+-   Real epidemiological systems:
+
+    -   are nonlinear
+
+    -   are stochastic e.g. in transmission
+
+    -   are nonstationary
+
+        -   There is a dependence on $t$ for what will happen in $\delta_t$
+
+    -   continuous time
+
+    -   hidden variables
+
+    -   large measurement error
+
+-   For measles, there are a number of specific mechanisms that have been
+    proposed/evidence for, that introduce additional challenges
+
+    -   High value of $R_0$
+
+    -   under reporting
+
+    -   seasonality e.g. with school terms
+
+    -   changing birth rates affects dynamics
+
+    -   birth-cohort effect
+
+    -   spatial travelling waves
+
+    -   fadeouts and reintroductions that scale with city size
+
+    -   metapop dynamics
+
+# Model and implementation
+
+## Overview
+
+-   Will look at case reports from 954 urban centers in England and Wales
+    pre-vaccination
+
+-   We examine questions regarding
+
+    -   measles extinction and recolonization
+
+    -   transmission rates
+
+    -   seasonality
+
+    -   resupply of susceptibles
+
+-   The paper that produced this analysis can be found at He, Ionides, &
+    King, J. R. Soc. Interface (2010)
+
+### Data sets
+
+## Modelling
+
+-   We want to add an $E$ compartment, along with birth and deaths to help us
+    address the issues seen in our SIR model on Consett
+
+    -   Couldn't reconcile $\rho$ and $\mu_{IR}$
+
+    -   Need to extra demographic stochasticity
+
+-   Add covariates
+
+    -   Birth rate
+
+    -   Population size
+
+-   Incorporate hypotheses
+
+    -   Is there a birth delay effect?
+
+        -   Does entry into $S$ happen when born, or when they become school
+            age?
+
+    -   cohort effect
+
+        -   Sizeable proportion enter the susceptible class in a single day
+
+            -   Use Dirac delta so that 0 everywhere except at 0 (i.e. delta of
+                c=0 is non-0, otherwise no pulse of entry)
+
+    $$
+    \mu_{BS}(t) = (1-c)B(t-\tau) + c\delta(t-[t])\int_{t-1}^t B(t - \tau - s)ds \\
+    \begin{aligned}
+    \text{where}: c &= \text{cohort effect} \\
+    \tau &= \text{school entry delay} \\
+    [t] &= \text{most recent 1 Sept before } t
+    \end{aligned}
+    $$
+
+-   Force of infection:
+
+    -   Have to adapt classic equation to account for:
+
+        -    importing of infection ($\iota$)
+
+        -   Gamma white noise process ($\zeta$) to add extra stochastic
+            (overdispersion)
+
+            -   with intensity $\sigma_{SE}$
+
+$$
+\mu_{SE}(t) = \frac{\beta(t)}{N(t)}(I + \iota)^\alpha \zeta(t)
+$$
+
+-   Expect different transmission in and out of school term
+
+    $$
+    \beta(t) = 
+    \begin{cases}
+    \beta_0(1+a(1-p)/p) & \text{during term} \\ 
+    \beta_0(1-a) & \text{during vacation} 
+    \end{cases} \\
+    \begin{aligned}
+    \text{where}: a &= \text{amplitude of seasonality} \\
+    p &= 0.7589 \text{ is the fraction of the year children are in school} \\
+    (1-p)/p &= \text{ensures that the average transmission rate is } \beta_0
+    \end{aligned}
+    $$
+
+-   Overdispersed binomial measurement model
+
+    -   Normal distribution to make computations easier
+
+$$
+\text{cases}_t | \Delta N_{IR} = z_t \sim \text{Normal}(\rho z_t, \rho(1-\rho)z_t + (\psi \rho z_t)^2)
+$$
+
+## Model implementation in `{pomp}`
+
+Here is the plot of the population and births per year. The red line indicates
+the curve we will use that adjust for the cohort effect of a fraction of the
+population entering the susceptible class at a single time point (when they go
+to school).
+
+![](images/Screen%20Shot%202021-07-14%20at%209.31.37%20AM.png)
+
+### Process model
+
+```{r}
+set.seed(594709947L)
+library(tidyverse)
+library(pomp)
+
+## ----rproc-------------------------------------------------
+rproc <- Csnippet("
+  double beta, br, seas, foi, dw, births;
+  double rate[6], trans[6];
+  
+  // cohort effect
+  if (fabs(t-floor(t)-251.0/365.0) < 0.5*dt)
+    br = cohort*birthrate/dt + (1-cohort)*birthrate;
+  else
+    br = (1.0-cohort)*birthrate;
+
+  // term-time seasonality
+  t = (t-floor(t))*365.25;
+  if ((t>=7 && t<=100) ||
+      (t>=115 && t<=199) ||
+      (t>=252 && t<=300) ||
+      (t>=308 && t<=356))
+      seas = 1.0+amplitude*0.2411/0.7589;
+  else
+      seas = 1.0-amplitude;
+
+  // transmission rate
+  beta = R0*(gamma+mu)*seas;
+
+  // expected force of infection
+  foi = beta*pow(I+iota,alpha)/pop;
+  
+  // white noise (extrademographic stochasticity)
+  dw = rgammawn(sigmaSE,dt);
+  
+  rate[0] = foi*dw/dt;  // stochastic force of infection
+  rate[1] = mu;         // natural S death
+  rate[2] = sigma;      // rate of ending of latent stage
+  rate[3] = mu;         // natural E death
+  rate[4] = gamma;      // recovery
+  rate[5] = mu;         // natural I death
+
+  // Poisson births
+  births = rpois(br*dt);
+  
+  // transitions between classes
+  reulermultinom(2,S,&rate[0],dt,&trans[0]);
+  reulermultinom(2,E,&rate[2],dt,&trans[2]);
+  reulermultinom(2,I,&rate[4],dt,&trans[4]);
+
+  S += births   - trans[0] - trans[1];
+  E += trans[0] - trans[2] - trans[3];
+  I += trans[2] - trans[4] - trans[5];
+  R = pop - S - E - I;
+  W += (dw - dt)/sigmaSE;  // standardized i.i.d. white noise
+  C += trans[4];           // true incidence
+")
+
+```
+
+### Initializing the states
+
+```{r}
+rinit <- Csnippet("
+  double m = pop/(S_0+E_0+I_0+R_0);
+  S = nearbyint(m*S_0);
+  E = nearbyint(m*E_0);
+  I = nearbyint(m*I_0);
+  R = nearbyint(m*R_0);
+  W = 0;
+  C = 0;
+")
+```
+
+### Measurement model
+
+-   Model both under-reporting and measurement error
+-   Take $C$ as the true incidence, therefore $E[\text{cases}|C] = \rho C$
+
+```{r}
+# Computes Pr=[cases | C]
+dmeas <- Csnippet("
+  double m = rho*C;
+  double v = m*(1.0-rho+psi*psi*m);
+  double tol = 0.0;
+  if (cases > 0.0) {
+    lik = pnorm(cases+0.5,m,sqrt(v)+tol,1,0)
+           - pnorm(cases-0.5,m,sqrt(v)+tol,1,0) + tol;
+  } else {
+    lik = pnorm(cases+0.5,m,sqrt(v)+tol,1,0) + tol;
+  }
+  if (give_log) lik = log(lik);
+")
+```
+
+```{r}
+# Simulates cases | C
+rmeas <- Csnippet("
+  double m = rho*C;
+  double v = m*(1.0-rho+psi*psi*m);
+  double tol = 0.0;
+  cases = rnorm(m,sqrt(v)+tol);
+  if (cases > 0.0) {
+    cases = nearbyint(cases);
+  } else {
+    cases = 0.0;
+  }
+")
+```
+
+### Constructing the pomp object
+
+We want $C$ and $W$ to be accumulator variables
+
+```{r}
+dat %>%
+  pomp(t0=with(dat,2*time[1]-time[2]),
+    time="time",
+    rprocess=euler(rproc,delta.t=1/365.25),
+    rinit=rinit,
+    dmeasure=dmeas,
+    rmeasure=rmeas,
+    covar=covariate_table(covar,times="time"),
+    accumvars=c("C","W"),
+    statenames=c("S","E","I","R","C","W"),
+    paramnames=c("R0","mu","sigma","gamma","alpha","iota",
+      "rho","sigmaSE","psi","cohort","amplitude",
+      "S_0","E_0","I_0","R_0")
+  ) -> m1
+```
+
+# Estimation
+
+```{r}
+library(doParallel); 
+library(doRNG) 
+registerDoParallel() 
+registerDoRNG(998468235L) 
+
+foreach(i=1:4, .combine=c) %dopar% {
+  library(pomp)
+  pfilter(m1,Np=10000,params=theta) 
+  } -> pfs
+
+logmeanexp(logLik(pfs),se=TRUE)
+```
+
+## Simulations
+
+### At the MLE
+
+```{r}
+m1 %>%
+  simulate(params=theta,nsim=3,format="d",include.data=TRUE) %>%
+  ggplot(aes(x=time,y=cases,group=.id,color=(.id=="data")))+
+  guides(color=FALSE)+
+  geom_line()+facet_wrap(~.id,ncol=2)
+```
+
+## Parameter estimation
+
+-   Use parameter transformation to constrain the parameters, e.g. use logit to
+    constrain between 0 and 1, and log to constrain \> 0
+-   barycentric means they all need to sum to 1!
+
+```{r}
+pt <- parameter_trans(
+  log=c("sigma","gamma","sigmaSE","psi","R0"),
+  logit=c("cohort","amplitude"),
+  barycentric=c("S_0","E_0","I_0","R_0")
+)
+```
+
+# Findings
+
+## Notable findings
+
+### Importing infections
+
+![](images/Screen%20Shot%202021-07-14%20at%209.47.34%20AM.png)
+
+-   Use log scale for non-negative quantities
+
+-   Quadratic for Hastings
+
+    -   Indicator of good scale
+
+-   Flat limit to left of London
+
+    -   Almost no imported infections
+
+    -   London is large so can sustain epidemic with no imported infections
+
+        -   Only when imported rate is too large that it can't explain the data
+
+-   Shift between London and Hasting
+
+    -   Expect different number of visitors
+
+### Seasonality
+
+![](images/Screen%20Shot%202021-07-14%20at%209.49.59%20AM.png)
+
+-   Agreement between cities
+
+-   Wider CI in Hastings
+
+    -   would expect more information in London therefore narrower
+
+### Cohort effect
+
+![](images/Screen%20Shot%202021-07-14%20at%209.50.57%20AM.png)
+
+-   In London, is some evidence that it improves the model
+
+    -   5-6 log unit improvements
+
+### Birth delay
+
+![](images/Screen%20Shot%202021-07-14%20at%209.51.46%20AM.png)
+
+-   Although discrete, can treat as continuous
+-   If imagine that the baby boom immediately go into S, then lose a lot of
+    information!
+
+### Reporting rate
+
+![](images/Screen%20Shot%202021-07-14%20at%209.53.14%20AM.png)
+
+-   Compare reporting rate from our model vs regression cumulative cases /
+    cumulative births
+
+-   Broadly speaking close agreement
+
+    -   Few places where large discrepancy
+
+### Predicted vs observed critical community size
+
+![](images/Screen%20Shot%202021-07-14%20at%209.54.12%20AM.png)
+
+-   Compute proportion of fade-outs (0s in the timeseries)
+
+    -   In small places where measles fades out, expect to see a lot of weeks
+        with 0s in the time series
+
+-   As pop size gets larger, eventually pass critical community size
+
+    -   Chains of transmission can remain unbroken/be sustained
+
+    -   Proportion of 0s go down
+
+-   Black dots is empirical data
+
+-   Red line is prediction from model
+
+## Problematic results
+
+### $R_0$
+
+![](images/Screen%20Shot%202021-07-14%20at%209.58.07%20AM.png)
+
+-   When examining profile likelihood, estimates above conventionally accepted
+    values in literature (15-20)
+
+-   Could be bugs in coding/underlying assumptions
+
+-   Could be the estimates in the literature are not correct!
+
+    -   Criticise existing estimate
+
+-   Where do $R_0$ estimates come from?
+
+    -   Serological estimates using age of first infection $R_0 \approx L/A$
+
+    -   Models fitted to data using feature-based approaches (not likelihood
+        like this one)
+
+        -   If models that use less information from the data agree with the
+            serology, and we get different results using the same model
+            structure on the same data, but with a method that uses more
+            information, then it's likely a limitation of previous models!
+
+-   Let's compare our $R_0$ with the mean age of first infection
+
+    -   In our model, the mean age of first infection is actually
+        $A = \frac{L}{R_0} + \text{birth delay}$
+
+        -   If $L = R_0 = 50$, which are reasonable numbers considering our
+            model/the time period
+
+            -   $A = 1 + 4$ given 1 refers to the time **after entering the
+                susceptible population!**
+
+### Parameter estimates
+
+![](images/Screen%20Shot%202021-07-14%20at%2010.12.32%20AM.png)
+
+-   Let's look at the correlation between city size and the infectious period
+    (IP)
+
+    -   Shouldn't be correlated as it's a biological thing!
+
+    -   Have to think about everything not modelled
+
+        -   We use homogeneous mixing model, but this isn't realistic
+
+            -   Might be that it needs to account for delays
+
+-   Pop vs $\alpha$
+
+    -   Supposed to account for homogeneity in some respect, but doesn't seem to
+        be useful as it places it instead in IP!
+
+    -   Sometimes our expectation of what a model should mean doesn't match up
+        with what the model thinks when moving around dfs to best fit the data!
+
+        -   Insight into which features of the data are showing up as
+            important/not
+
+-   Pop vs psi
+
+    -   larger cities require less stochasticity in the model process
+
+        -   Work more like clockwork
+
+        -   smaller cities less predictable
+
+            -   Have more high frequency variation that the model attributes to
+                measurement error
+
+-   Use models that compare across different regions to help show if you are
+    actually estimating biologically stable parameters!
+
+### Extra stochasticity
+
+![](images/Screen%20Shot%202021-07-14%20at%2010.21.56%20AM.png)
+
+-   London indicates we need the extra demographic noise vs Hastings
+
+-   Can do traces of infectious and latent periods
+
+    -   Balance the model fit vs corresponding with clinical values
+
+        -   More corroboration with clinical values when lower $\sigma_{SE}$,
+            but worse model fit. Possible explanation:
+
+            -   If no extra demographic stochasticity, model doesn't have enough
+                variability to explain data
+
+            -   Demographic stochasticity relatively larger in smaller cities,
+                i.e. wants to have really quick infectious and latent periods so
+                fewer people in E and I classes, therefore more scope for
+                demographic stochasticity to give flexibility to explain data
+
+How do we interpret the need for extra demographic stochasticity in this model?
+Let's simulate!
+
+![](images/Screen%20Shot%202021-07-14%20at%2010.27.50%20AM.png)
