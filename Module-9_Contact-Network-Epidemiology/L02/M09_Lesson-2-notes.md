@@ -95,7 +95,7 @@ $$
 
 - Has the odd property that a selected nodes has lower degree than the
   average degree of the connected nodes
-  - $P_n(k) = kP(k)/<K>$
+  - $P_n(k) = kP(k)/\langle K \rangle$
   - More likely to have selected your friend because their friendly!
   - Weighting by $k$
 
