@@ -203,9 +203,6 @@ $$
 - We can go from line 2 to 3 because $y$ and $y_{n+1}$ are conditionally
   independent given $p$ in the model
 
-# Intro Practical in R
-
-
 # Simple Gibbs sampler
 ## Chain binomial model 
 
