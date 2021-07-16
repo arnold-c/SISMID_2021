@@ -52,7 +52,11 @@ $$
   - $R_0 = \frac{\beta}{\gamma}$
 
 $$
-
+\begin{aligned}
+  \text{Assume homogenous mixing} &\therefore \\
+  \beta_{\text{homogenous}} = \beta_{\text{well mixed}} \\
+  
+\end{aligned}
 $$
 
 - For configuration network, the final size only depends on:
