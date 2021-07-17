@@ -74,7 +74,92 @@ $$
 
 $$
 \begin{aligned}
-    E(X) &= \int_0^\infin x\lambda e^{-\lambda x} dx \\
-    &= 
+    E(X) &= \int_0^\infin x\lambda e^{-\lambda x} dx \\ 
+    &= \left[ 
+      \begin{aligned}
+        f(x) &= x \quad & g^\prime(x) &= e^{-\lambda x} \\
+        f^\prime(x) &= 1 \quad & g(x) &= \frac{-e^{-\lambda x}}{\lambda}
+      \end{aligned}
+    \right] \\
+    &= \lambda \left [
+    \cancel{xe^{-\lambda x}} + \frac{1}{\lambda} \int e^{-\lambda x}
+    \right]_0^\infin \\
+    &= \left[
+      \frac{-e^{-\lambda x}}{\lambda}
+    \right]_0^\infin \\
+    &= \frac{1}{\lambda}
+
 \end{aligned}
 $$
+
+- Expectations are linear operations, so:
+  - $E\left( \sum_{i=1}^n a_i X_i \right) = \sum_{i=1}^n a_i E(X_i)$
+  - If the random variables $X_1, ..., X_n$ are independent:
+    - $\text{Var}\left( \sum_{i=1}^n a_i X_i \right) = \sum_{i=1}^n a_i^2 \text{Var}(X_i)$
+
+### Conditional probability
+
+$$
+\begin{aligned}
+  \Pr(B|A) &= \frac{\Pr (A \cap B)}{\Pr(A)} \\
+  E(X|A) &= \frac{E(X1_{\{A\}})}{\Pr(A)} \\ \\
+  &\text{Discrete case} \\
+  \Pr(X = x|Y=y) &= \frac{\Pr (X=x, Y=y)}{\Pr(Y=y)} \\\\
+  &\text{Continuous case} \\
+    F_{X|Y}(x|y) &= \frac{\int_{-\infin}^x f_{XY}(z, y)dz}{f_Y (y)} \\ 
+  f_{X|Y}(x|y) &= \frac{f_{XY}(x, y)}{f_Y(y)} \quad \frac{\text{(Joint
+  density)}}{\text{(Marginal density)}} \\
+  \text{where: } f_Y(y) &= \int_{-\infin}^\infin f_{XY}(x, y) dx
+\end{aligned}
+$$
+
+### Law of total probability
+
+If $B_1, ..., B_n$ are mutually exclusive events
+
+$$
+\begin{aligned}
+  \Pr(A) &= \sum_{i=1}^n \Pr \left( A \cap B_i \right) \\
+  &= \sum_{i=1}^n \Pr (A | B_i)\Pr(B_i)
+\end{aligned}
+$$
+
+### Law of total expectation
+
+$E(X)$ is scalar, but $E(X|Y)$ is a r.v.
+
+For discrete r.v.s $X, Y$:
+
+$$
+\begin{aligned}
+  E(X|Y=y) &= \sum_{k=1}^\infin x_k \Pr (X=x | Y=y) \\
+  \text{where: } E \left[ E(X|Y) \right] &= E[X]
+\end{aligned}
+$$
+
+### Law of total variance
+
+$$
+\begin{aligned}
+  \text{Var}(X) &= E(X^2) - E(X)^2 \\
+  &= E \left[ E(X^2|Y) \right] - E \left[ E(X|Y) \right]^2 \\
+  &= E \left[ \text{Var}(X|Y) + E(X|Y)^2 \right] -  E \left[ E(X|Y) \right]^2 \\
+  &= E \left[ \text{Var}(X|Y)\right] + \left\{ E \left[E(X|Y)^2 \right] - E
+  \left[E(X|Y) \right]^2 \right\} \\
+  &= E \left[\text{Var}(X|Y)\right] + \text{Var}\left[E(X|Y)\right]
+\end{aligned}
+$$
+
+### Strong Law of Large Numbers
+
+The empirical average of iid r.vs converge to the theoretical expectation
+(average).
+
+$$
+\underset{n \to \infin}{\lim} \frac{1}{n} \sum_{i=1}^n X_i = \mu
+$$
+
+### Central Limit Theorem
+
+For large $n$, the empirical average behaves as $\mathcal{N}(\mu, \sigma^2 /n)$,
+or, $\frac{\sqrt{n}(\bar{X_n} - \mu)}{\sigma} \sim \mathcal{N}(0, 1)$
