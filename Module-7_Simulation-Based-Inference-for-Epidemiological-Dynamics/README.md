@@ -13,7 +13,8 @@ likelihood and Bayesian inference.
 The majority of notes are taken from the course discussions and lectures led by 
 Drs. Aaron King and Edward Ionides. The course website with full materials can
 be found [here](https://kingaa.github.io/sbied/), which is subject to the 
-following license.
+following license. If I have provided additional context and notes based on
+other sources, they will be linked explicitly.
 
 ----------------------------
 
