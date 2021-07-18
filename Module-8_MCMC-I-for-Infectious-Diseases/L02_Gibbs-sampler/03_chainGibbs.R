@@ -34,12 +34,11 @@ N3  = 275  # frequency of chains with outbreak size 3
 for (i in 2:mcmc.size){
 
    # Draw an iterate of q from its full conditional distribution
-   q[i] = rbeta(1, shape1 = 2*n1 + 2*n11 + n111[i-1] + alpha, shape2 = n11 + 2*N3 + beta)
+   q[i] = rbeta(1,2*n1+2*n11+n111[i-1]+alpha,n11+2*N3+beta)
   
    # Draw an iterate of n111 from its full conditional distribution
-   n111[i] = rbinom(1, N3, prob = 2*q[i]/(2*q[i]+1))
+   n111[i] = rbinom(1,N3,2*q[i]/(2*q[i]+1))
    
-      
    }
 
 # The output: the MCMC samples
