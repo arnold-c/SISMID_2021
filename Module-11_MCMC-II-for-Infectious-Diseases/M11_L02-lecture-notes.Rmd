@@ -1,0 +1,217 @@
+---
+title: "Module 11: Lesson 2 Lecture Notes"
+author: "Callum Arnold"
+date: "7/19/2021"
+output: 
+  html_document:
+    toc: true
+      toc_float: true
+      code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# SIR models
+
+## The modelling process
+
+-   
+
+## Gamma distribution example
+
+-   Suppose we have data on incubation periods $y = y_1, …, y_n$ and we wish to
+    fit a Gamma distribution to these data ($y_i$) is the incubation period for
+    person $i$
+
+-   The Gamma distribution has the probability density function
+
+    -   $f(x|\alpha, \beta) = \beta^\alpha x^{\alpha -1} \exp(-\beta x) / \Gamma(\alpha) \quad \text{where } x>0, \alpha > 0, \beta > 0$
+
+    -   We can write this proportionally as
+        $f(x|\alpha, \beta) \propto x^{\alpha -1} \exp(-\beta x)$
+
+-   Assume data are independent draws from this distribution, therefore the
+    likelihood is:
+
+$$
+\begin{aligned}
+\pi(y|\alpha, \beta) &= f(y_1 |\alpha, \beta) \times ... \times f(y_n |\alpha, \beta) \\
+&= \beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp(\beta \sum y_k) / \{\Gamma(\alpha)\}^n
+\end{aligned}
+$$
+
+-   We assign independent priors as
+
+    -   $\alpha \sim \text{Gamma}(\lambda_\alpha, v_\alpha) \\ \beta \sim \text{Gamma}(\lambda_\beta, v_\beta)$
+
+        -   Use Gamma prior as:
+
+            -   Flexible so can be very informative/uninformative as we wish
+
+            -   Mathematical convenience - for $\beta$ in particularly, gives
+                nice way of evaluation full conditional density
+
+-   We can get the posterior density of interest
+
+    -   $\pi(\alpha, \beta | y) \propto \pi(y|\alpha, \beta)\pi(\alpha)\pi(\beta)$
+
+    -   Define MCMC algorithm to sample from this target density to update
+        $\alpha$ and $\beta$
+
+### Updating separately
+
+-   Find the full conditional densities
+
+    -   $\pi(\alpha | \beta, y)$ and $\pi(\beta | \alpha, y)$
+
+    -   $\pi(\alpha | \beta, y)$ is only known up to proportionality
+
+        -   Therefore have to update $\alpha$ using a Metropolis-Hastings step
+
+        -   $p = \frac{\pi(y|\alpha^*, \beta)\pi(\alpha^*)q(\alpha | \alpha^*)}{\pi(y|\alpha, \beta)\pi(\alpha)q(\alpha^* | \alpha)}$
+
+    -   $\pi(\beta | \alpha, y)$ is the density of a Gamma distribution
+
+        -   Can update using a Gamma distribution
+
+### Block update
+
+-   Instead of updating separately, put them in a block and update together
+
+-   Use M-H and propose $(\alpha^*, \beta^*)$ from
+    $q(\alpha^*, \beta^*|\alpha, \beta)$ and accept/reject accordingly
+
+-   May want to do if $\alpha$ and $\beta$ are strongly correlated
+
+    -   Hard to move one without the other
+
+## General (Markov) SIR example
+
+-   Suppose we observe $n$ removals at times $r_1 \le r_2 \le ... \le r_n$
+
+-   We want to estimate $\beta$ and $\gamma$
+
+    -   Posterior density $\pi(\beta, \gamma|r_1, r_2, ..., r_n)$
+
+-   The likelihood is very hard to compute
+
+    -   $\pi(r_1, r_2, ..., r_n |\beta, \gamma)$
+
+    -   Have to think about all possible ways removals could happen (don't know
+        when infected, or the order of the events e.g. inf, inf, inf, rem, rem,
+        rem etc.)
+
+    -   Introduce infection times as extra variables to give tractable augmented
+        likelihood
+
+### Augmented likelihood
+
+-   Let $b$ be the label of the last removal time i.e. $r_b \ge r_k$ for all
+    $k=1, …, n$
+
+-   Given removal data, $b$ is observed and fixed
+
+-   Define $a$ as the label of the first infection time $i_a <i_k$ for all
+    $k \ne a$
+
+-   Given removal data, $a$ is unknown
+
+-   Define:
+
+    -   $\vec{r} = r_1, ..., r_n$
+
+    -   $\vec{i} = i_1, ..., i_{a-1}, i_{a+1}, ..., i_n$
+
+        -   Note that it does not include $i_a$, which is the time of infection
+            for the first infected individual $a$
+
+-   Let $f(x|\gamma) = \gamma \exp(-\gamma x) \quad x>0$
+
+    -   Probability density function of the infectious period distribution
+        ($\text{Exp}(\gamma)$\_)
+
+-   The augmented likelihood:
+
+$$
+\begin{aligned}
+\pi(\vec{i}, \vec{r}|\beta, \gamma, i_a, a) 
+&= \prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right) \times \prod_{1 \le j \le n} f(r_j - i_j |\gamma) \\
+&= \underbrace{\prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right)}_{\text{how likely that individuals}\\ \text{get infected at inf times observed} (\vec{i})} \times \underbrace{\gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)}_{\text{How likely to observe removals}}
+$$
+
+-   where $I(t-)$ means $I(t)$ **just before** time $t$
+-   The first part of the augmented likelihood can be derived by looking at the
+    times to next event distribution
+
+$$
+T_i \sim \text{Exp}(\beta SI/N + \gamma I) \\
+p(inf) = \frac{\beta SI/N }{\beta SI/N + \gamma I} \\
+p(rem) = \frac{\gamma I }{\beta SI/N + \gamma I} \\
+\text{given } X \sim \text{Exp}(\lambda) \to f(x) = \lambda \exp(-\lambda x)
+\\
+f(T_i) = \cancel{(\beta SI/N + \gamma I)} \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \frac{\beta SI/N }{\cancel{\beta SI/N + \gamma I}} \\
+f(T_i) = \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \beta SI/N
+$$
+
+-   This represents the likelihood that the next event after $i_1$ is and
+    infection and occurs at time $i_2$.
+
+    -   This can be multiplied for all successive infection event times, which
+        gives the product term
+
+-   There's an analogous one for the removal times
+
+-   **NB:** We end dropping the $S$ and $I$ terms due to the differences between
+    the simulation
+
+-   The target posterior density
+    $\pi(\beta, \gamma, \vec{i}, i_a, a | \vec{r}) \propto \pi(\vec{i}, \vec{r}| \beta, \gamma, i_a, a)\pi(\beta, \gamma, i_a, a)$
+
+    -   Define independent priors
+
+        -   $\alpha \sim \text{Gamma}(\lambda_\alpha, v_\alpha) \\ \beta \sim \text{Gamma}(\lambda_\beta, v_\beta) \\ a \sim \text{U}[1, n] \\ i_a \sim \text{U}[-\infin, r_1]$
+
+-   If we can find the first full conditional distribution, we can update using
+    that if it's a standard distribution, and use MH if not
+
+    -   We know the posterior for $\beta$ is a Gamma distribution, which we can
+        sample from
+
+        -   Sampling directly from the full conditional distribution is often
+            called the **Gibbs step**
+
+        -   $\gamma$ posterior is also Gamma distribution
+
+-   For the infection times, the full conditional is non-standard
+
+    -   Update using M-H algorithm with M-H acceptance ratio
+
+        -   We're really mainly interested in $\beta$ and $\gamma$, so may just
+            want to update 10% of the infection times between each update of
+            $\beta$ and $\gamma$, otherwise may be too much computational work
+
+        -   ratio of the likelihood \* ratio of proposal densities
+
+        -   **Note:** If $i_k^* < i_a$ then $a^*=k$, otherwise $a$ is unchanged
+            (first infected individual)
+
+    -   How to propose infection times
+
+        -   Must be before removal time
+
+        -   Multiple options:
+
+            -   $i_k^* = r_k -\text{Exp}(\gamma)$
+
+            -   $i_k^* = r_k -\text{Exp}(\mu)$ where $\mu$ is fixed
+
+            -   $i_k^* \sim \mathcal{N}(i_k, \sigma^2)$
+
+    -   Evaluating the likelihood
+
+        -   $\pi(\vec{i}, \vec{r}|\beta, \gamma, i_a, a) = \prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right) \times \gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)$
+
+        -   The product term and the integral term are the difficult parts to
+            evaluate

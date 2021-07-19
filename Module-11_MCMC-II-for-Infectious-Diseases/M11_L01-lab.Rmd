@@ -1,0 +1,734 @@
+---
+title: 'Module 11: Lesson 1 Lab'
+author: "Callum Arnold"
+date: "7/19/2021"
+output: 
+  html_document:
+    toc: true
+      toc_float: true
+      code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercise 1
+
+> Go through the lines of each function and make sure that you follow the logic
+> behind.
+
+## SIR Markov
+
+```{r}
+simSIR.Markov <- function(N, beta, gamma) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  while (I > 0) {
+
+    # time to next event;
+    t <- t + rexp(1, (beta/N)*I*S + gamma*I);
+    times <- append(times, t);
+    
+    if (runif(1) < beta*S/(beta*S + N*gamma)) {
+      # infection
+      I <- I+1;
+      S <- S-1;
+      type <- append(type, 1);
+    }
+    else {
+      #removal
+      I <- I-1
+      type <- append(type, 2);
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptlbles who 
+  # contracted the disease sometime during the epidemic.
+  #
+  #
+  #
+  
+  # record the times of events (infections/removals) as well as the type
+  res <- list("t"=times, "type"=type);
+  res
+}
+```
+
+## SIR Markov alt
+
+```{r}
+simSIR.Markov.alternative <- function(N, beta, gamma) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      t.next.infection <- t +  rexp(1, (beta/N)*I*S)
+    }
+    else {
+      t.next.infection <- Inf;
+    }
+    
+    # time to next removal    
+    t.next.removal <- t + rexp(1, gamma*I)
+
+
+    # check which of the two events happens first
+    if (t.next.infection < t.next.removal) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      type <- append(type, 1);
+      times <- append(times, t.next.infection);
+      t <- t.next.infection
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      times <- append(times, t.next.removal);
+      type <- append(type, 2);
+      t <- t.next.removal
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptlbles who
+  # contracted the disease sometime during the epidemic.
+  #
+  #
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list("t"=times, "type"=type);
+  res
+}
+```
+
+## SIR non-Markov constant
+
+```{r}
+simSIR.Non.Markov.constant <- function(N, beta, k) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # create a vector containing the removal times of all the current infectives
+  r <- k 
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+  
+  # a counter for labelling the individuals
+  lambda <- 1;
+
+  # a vector to store the labels
+  labels <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      T  <- rexp(1, (beta/N)*I*S)
+    }
+    else {
+      T <- Inf;
+    }
+
+    # time to next removal
+    R <- min(r, na.rm=TRUE);
+    
+    # check which of the two events happens first
+    if (t + T < R) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      r <- append(r, t + T + k)
+      type <- append(type, 1);
+      times <- append(times, t + T);
+
+      lambda <- lambda + 1;
+      labels <- append(labels, lambda)
+      t <- t + T
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      type <- append(type, 2);
+      index.min.r <- which(min(r, na.rm=TRUE)==r)
+      r[index.min.r] <- NA
+      labels <- append(labels, index.min.r)
+      times <- append(times, R);
+      t <- R
+
+      # update the vector of 
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptlbles who contracted the disease sometime during the epidemic.
+  #
+  #
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list("t"=times, "type"=type, "labels" = labels);
+  res
+}
+```
+
+## SIR non-Markov Gamma
+
+```{r}
+simSIR.Non.Markov.gamma <- function(N, beta, gamma, delta) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # create a vector containing the removal times of all the current infectives.
+  k <- rgamma(1, gamma, delta)
+  r <- k 
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  # a counter for labelling the individuals
+  lambda <- 1;
+  
+  # a vector to store the labels
+  labels <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      T  <- rexp(1, (beta/N)*I*S)
+    }
+    else {
+      T <- Inf;
+    }
+
+    # time to next removal
+    R <- min(r, na.rm=TRUE);
+    
+    # check which of the two events happens first
+    if (t + T < R) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      k <- rgamma(1, gamma, delta)
+      r <- append(r, t + T + k)
+
+      lambda <- lambda + 1;
+      labels <- append(labels, lambda)
+      type <- append(type, 1);
+      times <- append(times, t + T);
+      t <- t + T
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      type <- append(type, 2);
+      index.min.r <- which(min(r, na.rm=TRUE)==r)
+      r[index.min.r] <- NA
+      labels <- append(labels, index.min.r)
+      times <- append(times, R);
+      t <- R      
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptlbles who contracted the disease sometime during the epidemic.
+  #
+  #
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list("t"=times, "type"=type, "labels"=labels);
+  res
+}
+```
+
+# **Exercise 2**
+
+> Simulate realisations from a Markovian SIR using the
+> function `simSIR.Markov` and make sure that you understand the output. You may
+> assume that size of the population size is N=21 (i.e. 20 susceptibles and 1
+> initial infective). In addition, you could try different values for (β,γ),
+> e.g. (0.9,1),(2,1) and (4,1).
+
+```{r}
+simSIR.Markov(N=21, beta = 0.9, gamma = 1)
+```
+
+```{r}
+library(purrr)
+map2(
+  .x = c(0.9, 2, 4),
+  .y = c(1, 1, 1),
+  .f = function(.x, .y){
+    print(glue::glue("Beta = {.x}, Gamma = {.y}"))
+    simSIR.Markov(N = 21, beta = .x, gamma = .y)
+  }
+)
+```
+
+# **Exercise 3**
+
+> Modify the existing functions in `simulation.R` to record the *final size* and
+> the *duration* of the epidemic as part of the functions' output.
+
+## SIR Markov
+
+```{r}
+simSIR.Markov <- function(N, beta, gamma) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  while (I > 0) {
+
+    # time to next event;
+    t <- t + rexp(1, (beta/N)*I*S + gamma*I);
+    times <- append(times, t);
+    
+    if (runif(1) < beta*S/(beta*S + N*gamma)) {
+      # infection
+      I <- I+1;
+      S <- S-1;
+      type <- append(type, 1);
+    }
+    else {
+      #removal
+      I <- I-1
+      type <- append(type, 2);
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptibles who 
+  # contracted the disease sometime during the epidemic.
+  fin_size = sum(type == 1) - 1
+  duration = sum(t)
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list(
+    "t" = times, 
+    "type" = type, 
+    "fin_size" = fin_size, 
+    "duration" = duration
+    );
+  res
+}
+```
+
+```{r}
+map2(
+  .x = c(0.9, 2, 4),
+  .y = c(1, 1, 1),
+  .f = function(.x, .y){
+    print(glue::glue("Beta = {.x}, Gamma = {.y}"))
+    simSIR.Markov(N = 21, beta = .x, gamma = .y)
+  }
+)
+```
+
+## SIR Markov alt
+
+```{r}
+simSIR.Markov.alternative <- function(N, beta, gamma) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      t.next.infection <- t +  rexp(1, (beta/N)*I*S)
+    }
+    else {
+      t.next.infection <- Inf;
+    }
+    
+    # time to next removal    
+    t.next.removal <- t + rexp(1, gamma*I)
+
+
+    # check which of the two events happens first
+    if (t.next.infection < t.next.removal) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      type <- append(type, 1);
+      times <- append(times, t.next.infection);
+      t <- t.next.infection
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      times <- append(times, t.next.removal);
+      type <- append(type, 2);
+      t <- t.next.removal
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptibles who 
+  # contracted the disease sometime during the epidemic.
+  fin_size = sum(type == 1) - 1
+  duration = sum(t)
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list(
+    "t" = times, 
+    "type" = type, 
+    "fin_size" = fin_size, 
+    "duration" = duration
+    );
+  res
+}
+```
+
+```{r}
+map2(
+  .x = c(0.9, 2, 4),
+  .y = c(1, 1, 1),
+  .f = function(.x, .y){
+    print(glue::glue("Beta = {.x}, Gamma = {.y}"))
+    simSIR.Markov.alternative(N = 21, beta = .x, gamma = .y)
+  }
+)
+```
+
+## SIR non-Markov constant
+
+```{r}
+simSIR.Non.Markov.constant <- function(N, beta, k) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # create a vector containing the removal times of all the current infectives
+  r <- k 
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+  
+  # a counter for labelling the individuals
+  lambda <- 1;
+
+  # a vector to store the labels
+  labels <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      T  <- rexp(1, (beta/N)*I*S)
+    }
+    else {
+      T <- Inf;
+    }
+
+    # time to next removal
+    R <- min(r, na.rm=TRUE);
+    
+    # check which of the two events happens first
+    if (t + T < R) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      r <- append(r, t + T + k)
+      type <- append(type, 1);
+      times <- append(times, t + T);
+
+      lambda <- lambda + 1;
+      labels <- append(labels, lambda)
+      t <- t + T
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      type <- append(type, 2);
+      index.min.r <- which(min(r, na.rm=TRUE)==r)
+      r[index.min.r] <- NA
+      labels <- append(labels, index.min.r)
+      times <- append(times, R);
+      t <- R
+
+      # update the vector of 
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptibles who 
+  # contracted the disease sometime during the epidemic.
+  fin_size = sum(type == 1) - 1
+  duration = sum(t)
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list(
+    "t" = times, 
+    "type" = type, 
+    "fin_size" = fin_size, 
+    "duration" = duration
+    );
+  res
+}
+```
+
+```{r}
+map(
+  .x = c(0.9, 2, 4),
+  .f = function(.x){
+    print(glue::glue("Beta = {.x}"))
+    simSIR.Non.Markov.constant(N = 21, beta = .x, k = 1)
+  }
+)
+```
+
+## SIR non-Markov Gamma
+
+```{r}
+simSIR.Non.Markov.gamma <- function(N, beta, gamma, delta) {
+
+  # initial number of infectives and susceptibles;
+  I <- 1
+  S <- N-1;
+
+  # recording time;
+  t <- 0;
+  times <- c(t);
+
+  # create a vector containing the removal times of all the current infectives.
+  k <- rgamma(1, gamma, delta)
+  r <- k 
+
+  # a vector which records the type of event (1=infection, 2=removal)
+  type <- c(1);
+
+  # a counter for labelling the individuals
+  lambda <- 1;
+  
+  # a vector to store the labels
+  labels <- c(1);
+
+  while (I > 0) {
+
+    ############################################
+    # simulate times to the next possible events
+    ############################################
+    
+    # time to next infection
+    if (S > 0) {
+      T  <- rexp(1, (beta/N)*I*S)
+    }
+    else {
+      T <- Inf;
+    }
+
+    # time to next removal
+    R <- min(r, na.rm=TRUE);
+    
+    # check which of the two events happens first
+    if (t + T < R) {
+      # infection occurs
+      I <- I+1;
+      S <- S-1;
+      k <- rgamma(1, gamma, delta)
+      r <- append(r, t + T + k)
+
+      lambda <- lambda + 1;
+      labels <- append(labels, lambda)
+      type <- append(type, 1);
+      times <- append(times, t + T);
+      t <- t + T
+    }
+    else {
+      #removal occurs
+      I <- I-1
+      type <- append(type, 2);
+      index.min.r <- which(min(r, na.rm=TRUE)==r)
+      r[index.min.r] <- NA
+      labels <- append(labels, index.min.r)
+      times <- append(times, R);
+      t <- R      
+    }
+  }
+  
+  # record the final size , i.e. the number of initially susceptibles who 
+  # contracted the disease sometime during the epidemic.
+  fin_size = sum(type == 1) - 1
+  duration = sum(t)
+  
+  # record the times of events (infections/removals) as well as the type
+  #
+  #
+  res <- list(
+    "t" = times, 
+    "type" = type, 
+    "fin_size" = fin_size, 
+    "duration" = duration
+    );
+  res
+}
+```
+
+```{r}
+pmap(
+  .l = list(
+    beta = c(0.9, 2, 4),
+    gamma = c(1, 1, 1),
+    delta = c(1, 1, 1)
+  ),
+  .f = function(beta, gamma, delta){
+    print(glue::glue("Beta = {beta}, Gamma = {gamma}, Delta = {delta}"))
+    simSIR.Non.Markov.gamma(N = 21, beta = beta, gamma = gamma, delta = delta)
+  }
+)
+```
+
+# **Exercise 4**
+
+> Derive a simulation-based estimate of the distribution of the *final size* of
+> a Markovian SIR model for different values of R0, e.g. R0=0.9, R0=1.5 and
+> R0=4. Furthermore, do the same for the non-Markovian models, e.g. for a
+> constant and a Gamma infectious period. **Hint**: You may find it useful to
+> write a loop which will iterate the following steps for a number of times:
+>
+> 1.  Simulate a realisation from the epidemic model;
+>
+> 2.  Store the final size
+>
+> At the end you should have a collection of *final sizes* for which then you
+> can plot a histogram as your estimate of the true distribution of the final
+> size.
+
+## SIR Markov
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+test <- map_df(
+  .x = seq(0.5, 10, by = 0.1),
+  .f = function(.x){
+    gamma <- 1 / .x
+    N <- 1000
+    fin_size <- simSIR.Markov.alternative(
+        N = N, beta = 1, gamma = gamma
+        )$fin_size
+    fin_prop = fin_size / N
+    
+    return(data.frame(
+      R_0 = .x,
+      N = N,
+      fin_size = simSIR.Markov.alternative(
+        N = 1000, beta = 1, gamma = gamma
+        )$fin_size,
+      fin_prop = fin_prop
+    ))
+  }
+)
+
+ggplot(test, aes(x = R_0, y = fin_size)) +
+  geom_bar(stat = "identity")
+```
+
+# **Exercise 5**
+
+> Repeat the above exercise but derive, by simulation, the distribution of the
+> *duration* of the epidemic instead of the *final size*.
+
+# **Exercise 6**
+
+> Write a function in R to simulate from a non-Markovian stochastic epidemic
+> model where the infectious period is assumed to follow a Weibull distribution.
+> **Hint**: The probability density function (pdf) of the Weibull distribution
+> is as follows:
+>
+> $f(x) = \frac{a}{b} \frac{x}{b}^{(a-1)} \exp(−(x/b)a), x>0,a>0,b>0$
+>
+> Type `?Weibull` to find out how to simulate from a Weibull distribution.
+
+# **Exercise 7**
+
+> Write a function to simulate from an epidemic model which involves a fixed
+> latent period, i.e. write a function to simulate from a stochastic SEIR model.
