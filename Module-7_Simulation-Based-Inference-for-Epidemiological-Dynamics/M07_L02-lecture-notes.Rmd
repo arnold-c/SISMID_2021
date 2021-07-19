@@ -201,7 +201,7 @@ stochastic process:
         1.  Probability that they **fail to escape infection** is
             $1 - \exp \{-\mu_{SI} \left(\tilde{I}(t)\right) \delta \}$
 
-## Euler's method vs Gillespie's algorith
+## Euler's method vs Gillespie's algorithm
 
 -   [Gillespie's algorithm](https://www.youtube.com/watch?v=46ruoTTLL5g) is an
     exact method for simulating continuous-time Markov chains

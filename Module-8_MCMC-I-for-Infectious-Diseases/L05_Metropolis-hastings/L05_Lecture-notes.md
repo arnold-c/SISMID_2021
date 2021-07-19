@@ -167,7 +167,7 @@ P(\theta | x) &= \frac{P(x|\theta)P(\theta)}{P(x)} \\
 $$
 
 -   To make it into the continuous case, we replace proposal probabilities
-    $q(j|i)$ with proposal densities $q(\mathbf{y}|\mathbf{x})$
+    $q(j|i)$ with proposal densities $q(\mathbf{y}|\mathbf{x})$, AKA **kernels**
 
 $$
 a(\mathbf{x}, \mathbf{y})=\min\left\{\frac{f(\mathbf{y})q(\mathbf{x}|\mathbf{y})}{f(\mathbf{x})q(\mathbf{y}|\mathbf{x})}, 1\right\}
