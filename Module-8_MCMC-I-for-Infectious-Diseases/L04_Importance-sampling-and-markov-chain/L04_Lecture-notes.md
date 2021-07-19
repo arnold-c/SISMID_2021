@@ -1,6 +1,6 @@
 ---
 title: "Monte Carlo Notes"
-subtitle: "M08: Lecture 3 (Pages 8-14)"
+subtitle: "M08: Lecture 4 (Pages 8-14)"
 author: "Callum Arnold"
 ---
 
@@ -108,7 +108,7 @@ $$
     -   $\pi_ip_{ij} = \pi_j p_{ji} \quad \text{for all } i, j$ then
         $\mathbf{\pi}$ is a stationary distribution (detailed balance equation)
 
-        -    Balance preserved between all pairs (**global balance**)
+        -   Balance preserved between all pairs (**global balance**)
 
     -   When this condition is met, they are often called **reversible Markov
         chains**
