@@ -18,7 +18,40 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## The modelling process
 
-## Gamma distribution example  {#gammadist}
+-   By Bayes' theorem $\pi(\theta|y) \propto \pi(y|\theta)\pi(\theta)$
+
+    -   Posterior $\propto$ likelihood x prior
+
+-   Posterior usually not known explicitly (i.e. only know it up to
+    proportionality)
+
+    -   Use MCMC algorithm to get samples
+
+-   Typically $\theta$ is multidimensional, so we need a way of updating each
+    $\theta_k$
+
+    -   If the full conditional density is known explicitly (not just up to
+        proportionality), then we can use it to perform the update for
+        $\theta_k$ (known as the **Gibbs step - part of Gibbs sampling**)
+
+        -   $\pi(\theta_k | \theta_1, ..., \theta_{k-1}, \theta_{k+1}, ..., \theta_n, y)$
+
+    -   If the full conditional density is not known explicitly/can be easily
+        sampled from, use M-H step
+
+-   What if the likelihood is unknown (hard/complicated/impossible to compute)
+
+    -   Data augmentation
+
+        -   Introduce extra quantities $x$, such that $\pi(x, y | \theta)$ is
+            tractable
+
+            -   Usually to do with infection process that is normally unobserved
+
+    -   Give up on MCMC and use something else e.g. Approximate Bayesian
+        Computation
+
+## Gamma distribution example {#gammadist}
 
 -   Suppose we have data on incubation periods $y = y_1, …, y_n$ and we wish to
     fit a Gamma distribution to these data ($y_i$) is the incubation period for
@@ -224,15 +257,13 @@ $$
         -   Sampling directly from the full conditional distribution is often
             called the **Gibbs step**
 
-        -   $\gamma$ posterior is also Gamma distribution
-
         -   We can show this in the following steps
 
 First let's compute the full joint density function up to proportionality. To do
 this, we will use Bayes' theorem, and the specification of the likelihood
 $\pi(y|\alpha, \beta)$, which stems from the probability density function of the
-Gamma distribution (see [Section 1](\#gammadist)). From here, we can multiply
-the likelihood by the prior (a Gamma distribution specified above), to get the
+Gamma distribution (see [Section 1](#gammadist)). From here, we can multiply the
+likelihood by the prior (a Gamma distribution specified above), to get the
 posterior (up to proportionality).
 
 $$
@@ -250,34 +281,115 @@ f(\beta| ...) &\sim \Gamma\left(n+\lambda_\beta -1, \frac{1}{N}\int S(t)I(t) dt 
 \end{aligned}
 $$
 
--   For the infection times, the full conditional is non-standard
+-   $\gamma$ posterior is also Gamma distribution so can use Gibbs steps
+
+-   For the infection times, the full conditional distribution is non-standard
 
     -   Update using M-H algorithm with M-H acceptance ratio
 
-        -   We're really mainly interested in $\beta$ and $\gamma$, so may just
-            want to update 10% of the infection times between each update of
-            $\beta$ and $\gamma$, otherwise may be too much computational work
+        -   We're mainly interested in $\beta$ and $\gamma$, so may just want to
+            update 10% of the infection times between each update of $\beta$ and
+            $\gamma$, otherwise may be too much computational work
 
-        -   ratio of the likelihood \* ratio of proposal densities
+        -   ratio of the likelihood x ratio of proposal densities
 
-        -   **Note:** If $i_k^* < i_a$ then $a^*=k$, otherwise $a$ is unchanged
-            (first infected individual)
+        -   Accept with M-H acceptance ratio:
 
-    -   How to propose infection times
+        $$
+        A_{i_k i_k^*} = \min \left\{ \frac{\pi(\vec{i^*}, \vec{r} | \beta, \gamma, i_{a^*}, a^*)}{\pi(\vec{i}, \vec{r} | \beta, \gamma, i_{a}, a^*)} \cdot \frac{q(i_k|i_k^*)}{q(i_k^*|i_k)}, 1\right\}
+        $$
 
-        -   Must be before removal time
+        -   **Note:** If $i_k^* < i_a$ then $a^*=k$ (update identity of the
+            initial infective), otherwise $a$ is unchanged (first infected
+            individual)
 
-        -   Multiple options:
+-   How to propose infection times
 
-            -   $i_k^* = r_k -\text{Exp}(\gamma)$
+    -   Propose a new time using proposal density $q(i_k^* | i_k)$
 
-            -   $i_k^* = r_k -\text{Exp}(\mu)$ where $\mu$ is fixed
+    -   Must be before removal time
 
-            -   $i_k^* \sim \mathcal{N}(i_k, \sigma^2)$
+    -   Multiple options:
 
-    -   Evaluating the likelihood
+        -   $i_k^* = r_k -\text{Exp}(\gamma)$
 
-        -   $\pi(\vec{i}, \vec{r}|\beta, \gamma, i_a, a) = \prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right) \times \gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)$
+        -   $i_k^* = r_k -\text{Exp}(\mu)$ where $\mu$ is fixed
 
-        -   The product term and the integral term are the difficult parts to
-            evaluate
+        -   $i_k^* \sim \mathcal{N}(i_k, \sigma^2)$
+
+-   Evaluating the likelihood
+
+    -   $\pi(\vec{i}, \vec{r}|\beta, \gamma, i_a, a) = \prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right) \times \gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)$
+
+    -   The product term and the integral term are the difficult parts to
+        evaluate
+
+    -   Product term
+
+        -   $\prod_{j \ne a}\frac{\beta}{N}I(i_j-) = \left(\frac{\beta}{N}\right)^{n-1} \prod_{j \ne a}I(i_j-)$
+
+        -   Can't simplify product term any more
+
+        -   Need to write code to evaluate the number of infectives at each
+            infection event
+
+            -   Calculate number at each event
+
+    -   Integral term
+
+        -   $\int S(t)I(t) dt = \sum_{1 \le k \le n} \sum_{1 \le j \le N}\left[(r_k \wedge i_j) - (i_k \wedge i_j)\right] \quad \text{where: } a \wedge b = \min(a, b)$
+
+            -   $j$ is over all individuals in the population, and $k$ goes
+                across only those who are/were ever infected
+
+            -   $i_j = \infty \text{ for } j>n$ i.e. individuals never infected
+
+        -   Can derive this term by rewriting the number of susceptibles and
+            infectives by using sums of indicator functions (1 if conditions
+            met, 0 otherwise)
+
+            -   **Note:** For $I(t)$ indicator function, we only look across
+                **all** individuals who have ever been infected, and count those
+                who are presently infected (i.e. we're at a time after they've
+                been infected and before they've been remove)
+
+        -   Can imagine the integral as the total amount of time during infected
+            individual is ability to infect a susceptible individual, summed
+            over all pairs, i.e. total time available for infection
+
+$$
+\begin{aligned}
+S(t) &= \sum_{1 \le j \le N} 1_{\{j \text{ is susceptible at time } t\}} \\
+&= \sum_{1 \le j \le N} 1_{\{i_j < t\}} \\
+I(t) &= \sum_{1 \le k \le n} 1_{\{i_k < t < r_k\}}\\
+\int S(t)I(t) dt &= \int \sum_{1 \le k \le n} \sum_{1 \le j \le N} 1_{\{i_j < t\}}1_{\{i_k < t < r_k\}} dt\\
+&= \sum_{1 \le k \le n} \sum_{1 \le j \le N} \int 1_{\{i_k < t < r_k \text{ and } i_j < t\}} dt \\
+&= \sum_{1 \le k \le n} \sum_{1 \le j \le N}\left[(r_k \wedge i_j) - (i_k \wedge i_j)\right] \\
+\text{as } 1_{\{i_j < t\}}1_{\{i_k < t < r_k\}} &= 1_{\{i_k < t < r_k \text{ and } i_j < t\}} **
+\end{aligned}
+$$
+
+\*\* **Note:** This line is true because if either one of the terms = 0, the
+product = 0
+
+In practise, our MCMC algorithm would look like this:
+
+-   Initialize $\beta, \gamma, \vec{i}, i_a, a$
+
+-   Loop:
+
+    -   Update $\beta$
+
+    -   Update $\gamma$
+
+    -   Update a fraction of the infection times $i_k$
+
+    -   Record current values of $\beta, \gamma$ and a summary statistic of
+        infection times e.g. sum of the infection times or infectious period
+
+        -   Helps make sure there isn't an error in the code, for example,
+            infection times next update
+
+-   The output is a sequence
+    $(\beta_1, \gamma_1), (\beta_2, \gamma_2), ..., (\beta_M, \gamma_M)$ where
+    $M$ is the number of iterations in loop
