@@ -310,3 +310,24 @@ $$
 -   Estimation depends on the detail of the data
 -   For example, if $n=0$, no inference to be made as no one becomes infected
 -   What value of $n$ is the most informative?
+
+# Discussion
+
+## When do you decide to use mean and variance vs shape and rate parameters (in Gamma infectious periods)
+
+-   Not always obvious what's easy to estimate
+-   Worth writing down the math/think about what's going to happen, **before
+    coding**
+
+## Deriving the augmented likelihood
+
+-   In video think about simulating and drawing from exponential distributions
+
+    -   Put together and you get the likelihood
+
+-   exponential integral based on Taylor expansion in the limit as
+    $\delta t \to 0$
+
+    ![](images/Screen%20Shot%202021-07-20%20at%2012.59.45%20PM.png)
+
+-   

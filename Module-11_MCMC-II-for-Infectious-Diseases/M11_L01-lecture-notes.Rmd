@@ -124,6 +124,7 @@ Algorithm:
     -   If $u < \frac{\sum_{j \le 1, j \ne i} q_{ij}}{L}$
 
         -   $k=1$
+        -   Divide by $L$ to normalize so it's between 0 and 1
 
     -   Else if $u < \frac{\sum_{j \le 2, j \ne i} q_{ij}}{L}$
 
@@ -214,17 +215,55 @@ Algorithm:
 
         -   $T \sim \text{Exp}(\beta si /N)$
 
-        -   If $T <$ time of next removal, infection occurs
+        -   If $T <$ time of next removal, next event is an infection
 
             -   Otherwise, next removal occurs
 
-            -   If infection happens, then $i$ in
+            -   If removal occurs first, then $i$ in
                 $T \sim \text{Exp}(\beta si /N)$ changes, so we no longer have
-                the correct distribution and it needs to be updated
-
--   
+                the correct distribution for time to next infection and it needs
+                to be updated
 
 ### Example: non-Markov SIR model
+
+-   Lets assume we have a fixed infectious period
+
+    -   $T_I = c$
+
+-   We need $\vec{r}$ which contains the removal times of all the current
+    infectives
+
+-   Initialize:
+
+    -   $S = N-1$
+
+    -   $I = 1$
+
+    -   $t=0$
+
+    -   $\vec{r} = (c)$
+
+        -   We only have one infective, so $\vec{r}$ only contains 1 removal
+            time ($0+c$)
+
+-   While $i>0$:
+
+    -   $T\sim \text{Exp}(\beta SI/N)$
+
+        -   Draw from the infectious period distribution
+
+    -   $R=\min(r)$
+
+        -   Time of the next removal
+
+    -   if $t + T < R$ (current time + potential time to next infection \< time
+        of next removal)
+
+        -   $S = S-1, I = I+1$
+
+        -   Add new removal time $r \leftarrow (t+T+c)$
+
+        -   Update current time $t=t+T$
 
 # Discussion
 

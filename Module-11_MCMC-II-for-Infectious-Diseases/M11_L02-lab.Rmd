@@ -34,7 +34,9 @@ $$
 The goal is to make (sampling-based) Bayesian inference for the parameters α and
 β.
 
-# **Exercise 1**
+# Exercises
+
+## Exercise 1
 
 > Assume that α and β are *a priori* independent and assign Gamma distributions
 > with parameters $λα$ and $να$, and $λβ$ and $νβ$, respectively. Write down
@@ -67,16 +69,16 @@ $$
 \end{aligned}
 $$
 
-# **Exercise 2**
+## Exercise 2
 
 > Having obtained the joint posterior density in Exercise 1, first derive the
-> densities of the posterior distribution of the parameters α and β up to
-> proportionality, i.e. π(α\|β,y) and π(β\|α,y).
+> densities of the posterior distribution of the parameters $α$ and $β$ up to
+> proportionality, i.e. $π(α|β,y)$ and $π(β|α,y)$.
 >
 > Is any of these densities of a known form (i.e. the density of a
 > standard/well-known distribution, e.g. Gamma, Normal etc)?
 
-## Full conditional density of $\alpha$
+### Full conditional density of $\alpha$
 
 $$
 \pi(\alpha|\beta, y) \propto \left(\frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} }{\{\Gamma(\alpha)\}^n} \right) \times \left(\alpha^{\lambda_\alpha - 1}\exp(-\nu_\alpha \alpha)\right)
@@ -85,7 +87,7 @@ $$
 This doesn't look like a standard well-known distribution, so we'll need to use
 M-H algorithm
 
-## Full conditional density of $\beta$
+### Full conditional density of $\beta$
 
 $$
 \begin{aligned}
@@ -100,7 +102,7 @@ We can see that this looks like a Gamma distribution with the associated shape
 parameters, therefore, for $\beta$ we can sample directly from its conditional
 distribution.
 
-# **Exercise 3**
+## Exercise 3
 
 > Write a `R` function to implement an MCMC algorithm (from scratch!) which
 > samples from the joint posterior distribution $π(α,β|y)$.
@@ -127,7 +129,7 @@ distribution.
 
 ```
 
-# **Exercise 4**
+## Exercise 4
 
 > Test your algorithm is producing sensible results.
 >
@@ -143,7 +145,7 @@ distribution.
 > should be centered around the values you have chosen to simulate the data from
 > (e.g. 4 and 2 in this case).
 
-# **Exercise 5**
+## Exercise 5
 
 > If you have convinced yourself that your MCMC algorithm is doing what is
 > supposed to be doing, then use it to fit the model to the Campylobacter data
@@ -152,7 +154,7 @@ distribution.
 >
 > Does the model offer a good fit? How would you go assessing that?
 
-# **Exercise 6\* [Optional]**
+## Exercise 6 [Optional]
 
 > Now that you have got a working algorithm, can you improve its mixing?
 >

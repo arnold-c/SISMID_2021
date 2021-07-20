@@ -6,7 +6,8 @@
 
 mcmcSIR.Markov <- function(data, iter) {
 
-  #Data frame "data" should contain two columns; first is the label of the individuals and the second contains the removal times.
+  # Data frame "data" should contain two columns; first is the label of the 
+  # individuals and the second contains the removal times.
 
   
   # Get the final size and the size of population
@@ -17,7 +18,7 @@ mcmcSIR.Markov <- function(data, iter) {
   removal.times <- data$removal[1:fs]
 
   # First of all, we need to simulate the initial values for the infection
-  # times to iniate our MCMC sampler.
+  # times to initiate our MCMC sampler.
 
   # an easy way to place all the infection times just before the first removal time.
   infection.times <- seq(0, min(removal.times), len=fs)
@@ -65,12 +66,14 @@ mcmcSIR.Markov <- function(data, iter) {
 
     # compute the (new) value of the double sum, log(prod) and sum.R.minus.I
     
-    # first update the data frame data which is used for the computation of the quantities of interest
+    # first update the data frame data which is used for the computation of the 
+    # quantities of interest
     data$infection[choose.ind] <- inf.time.can;
     infection.times[choose.ind] <- inf.time.can;
 
-    # compute the log product first. The proposed move should be consistent with the observed data,
-    # i.e. results into the same final size. Otherwise, the move is rejected straight away.
+    # compute the log product first. The proposed move should be consistent 
+    # with the observed data, i.e. results into the same final size. Otherwise, 
+    # the move is rejected straight away.
     
     log.prod.can <- compute.log.prod(data, infection.times, removal.times, fs);
 
@@ -81,7 +84,8 @@ mcmcSIR.Markov <- function(data, iter) {
       sum.R.minus.I.can <- sum(removal.times-infection.times);
 
       # compute the log(q_ratio);
-      log.q.ratio <- log(dexp(removal.times[choose.ind] - inf.time.cur, gamma.cur)) - log(dexp(removal.times[choose.ind] - inf.time.can, gamma.cur))
+      log.q.ratio <- log(dexp(removal.times[choose.ind] - inf.time.cur, gamma.cur)) - 
+        log(dexp(removal.times[choose.ind] - inf.time.can, gamma.cur))
 
       log.pi.can <- log.prod.can - (beta.cur/N)*double.sum.can - gamma.cur*sum.R.minus.I.can;
       log.pi.cur <- log.prod.cur - (beta.cur/N)*double.sum.cur - gamma.cur*sum.R.minus.I.cur;
