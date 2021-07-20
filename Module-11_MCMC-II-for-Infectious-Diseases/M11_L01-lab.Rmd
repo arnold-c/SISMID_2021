@@ -3,10 +3,11 @@ title: 'Module 11: Lesson 1 Lab'
 author: "Callum Arnold"
 date: "7/19/2021"
 output: 
-  html_document:
+  pdf_document:
+    latex_engine: xelatex
     toc: true
-      toc_float: true
-      code_folding: hide
+header-includes:
+  - \usepackage{cancel}
 ---
 
 ```{r setup, include=FALSE}
