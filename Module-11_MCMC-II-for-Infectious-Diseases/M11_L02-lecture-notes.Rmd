@@ -3,10 +3,10 @@ title: "Module 11: Lesson 2 Lecture Notes"
 author: "Callum Arnold"
 date: "7/19/2021"
 output: 
-  html_document:
+  pdf_document:
     toc: true
-      toc_float: true
-      code_folding: hide
+header-includes:
+  - \usepackage{cancel}
 ---
 
 ```{r setup, include=FALSE}
@@ -17,9 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## The modelling process
 
--   
-
-## Gamma distribution example
+## Gamma distribution example  {#gammadist}
 
 -   Suppose we have data on incubation periods $y = y_1, …, y_n$ and we wish to
     fit a Gamma distribution to these data ($y_i$) is the incubation period for
@@ -130,7 +128,7 @@ $$
 -   Let $f(x|\gamma) = \gamma \exp(-\gamma x) \quad x>0$
 
     -   Probability density function of the infectious period distribution
-        ($\text{Exp}(\gamma)$\_)
+        ($\text{Exp}(\gamma)$)
 
 -   The augmented likelihood:
 
@@ -138,7 +136,8 @@ $$
 \begin{aligned}
 \pi(\vec{i}, \vec{r}|\beta, \gamma, i_a, a) 
 &= \prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right) \times \prod_{1 \le j \le n} f(r_j - i_j |\gamma) \\
-&= \underbrace{\prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right)}_{\text{how likely that individuals}\\ \text{get infected at inf times observed} (\vec{i})} \times \underbrace{\gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)}_{\text{How likely to observe removals}}
+&= \underbrace{\prod_{j \ne a}\beta N^{-1}I(i_j-) \times \exp \left(-\beta N^{-1} \int S(t)I(t) dt\right)}_{\text{how likely that individuals get infected at inf times observed}} \times \underbrace{\gamma^n \exp\left(-\gamma \sum(r_j -i_j)\right)}_{\text{how likely to observe removals}}
+\end{aligned}
 $$
 
 -   where $I(t-)$ means $I(t)$ **just before** time $t$
@@ -146,32 +145,74 @@ $$
     times to next event distribution
 
 $$
-T_i \sim \text{Exp}(\beta SI/N + \gamma I) \\
-p(inf) = \frac{\beta SI/N }{\beta SI/N + \gamma I} \\
-p(rem) = \frac{\gamma I }{\beta SI/N + \gamma I} \\
-\text{given } X \sim \text{Exp}(\lambda) \to f(x) = \lambda \exp(-\lambda x)
-\\
-f(T_i) = \cancel{(\beta SI/N + \gamma I)} \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \frac{\beta SI/N }{\cancel{\beta SI/N + \gamma I}} \\
-f(T_i) = \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \beta SI/N
+\begin{aligned}
+T_i &\sim \text{Exp}(\beta SI/N + \gamma I) \\
+p(inf) &= \frac{\beta SI/N }{\beta SI/N + \gamma I} \\
+p(rem) &= \frac{\gamma I }{\beta SI/N + \gamma I} \\
+\text{given } X &\sim \text{Exp}(\lambda) \to f(x) = \lambda \exp(-\lambda x) \\
+f(T) &= \cancel{(\beta SI/N + \gamma I)} \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \frac{\beta SI/N }{\cancel{\beta SI/N + \gamma I}} \\
+f(T) &= \exp(-(\beta SI/N + \gamma I)(i_2 - i_1)) \times \beta SI/N
+\end{aligned}
 $$
 
--   This represents the likelihood that the next event after $i_1$ is and
-    infection and occurs at time $i_2$.
+-   This represents the likelihood that the next event after $i_1$ is an
+    infection and occurs at time $i_2$
 
     -   This can be multiplied for all successive infection event times, which
         gives the product term
 
+    -   The term $(i_2 - i_1)$ is specifying the time until the infection
+
+    -   $(\beta SI/N + \gamma I) \exp(-(\beta SI/N + \gamma I)$ is how likely it
+        is to draw the time $i_2-i_1$ from the exponential infection time
+        distribution
+
+    -   $\frac{\beta SI/N}{\beta SI/N + \gamma I}$ is the likelihood that the
+        event is an infection, if an infection was drawn
+
+        -   If the next event was a removal, the final term would instead be
+            $\frac{\gamma I}{\beta SI/N + \gamma I}$ and we would instead have
+            $(r_1 - i_1)$
+
+    -   The integral symbol comes because we are actually calculating the area
+        when multiplying $\beta SI/N$ in the exponential by the time difference
+        $(i_2 - i_1)$
+
+        ![](images/Screen%20Shot%202021-07-19%20at%209.27.08%20PM.png)
+
 -   There's an analogous one for the removal times
 
--   **NB:** We end dropping the $S$ and $I$ terms due to the differences between
-    the simulation
+-   **NB:** $S$ and $I$ refer to the numbers in the respective compartments at
+    time $t$
+
+    -   We end up dropping the $S$ and $I$ terms due to the differences between
+        the simulation and calculating the likelihood
+
+        -   The simulation describes the number of susceptibles and the number
+            of infecteds
+
+        -   Calculating the likelihood, we label the individuals already e.g.
+            when infection occurs, we say it's a particular individual who gets
+            infected
+
+            -   Results in slight difference
 
 -   The target posterior density
     $\pi(\beta, \gamma, \vec{i}, i_a, a | \vec{r}) \propto \pi(\vec{i}, \vec{r}| \beta, \gamma, i_a, a)\pi(\beta, \gamma, i_a, a)$
 
     -   Define independent priors
 
-        -   $\alpha \sim \text{Gamma}(\lambda_\alpha, v_\alpha) \\ \beta \sim \text{Gamma}(\lambda_\beta, v_\beta) \\ a \sim \text{U}[1, n] \\ i_a \sim \text{U}[-\infin, r_1]$
+$$
+\begin{aligned}
+\alpha &\sim \text{Gamma}(\lambda_\alpha, \nu_\alpha) \\ 
+\beta &\sim \text{Gamma}(\lambda_\beta, \nu_\beta) \\ 
+a &\sim \text{U}[1, n] \\ 
+i_a &\sim \text{U}[-\infty, r_1]
+\end{aligned}
+$$
+
+-   **NB:** we know the first infection must happen before the first removal,
+    but we don't know exactly when, hence $\text{U}[-\infty, r_1]$
 
 -   If we can find the first full conditional distribution, we can update using
     that if it's a standard distribution, and use MH if not
@@ -183,6 +224,30 @@ $$
             called the **Gibbs step**
 
         -   $\gamma$ posterior is also Gamma distribution
+
+        -   We can show this in the following steps
+
+First let's compute the full joint density function up to proportionality. To do
+this, we will use Bayes' theorem, and the specification of the likelihood
+$\pi(y|\alpha, \beta)$, which stems from the probability density function of the
+Gamma distribution (see [Section 1](\#gammadist)). From here, we can multiply
+the likelihood by the prior (a Gamma distribution specified above), to get the
+posterior (up to proportionality).
+
+$$
+\begin{aligned}
+\pi(\alpha, \beta | y) &\propto 
+\pi(y|\beta, ...)\cancel{\pi(\alpha)}\pi(\beta) \\
+\pi(y| \alpha, \beta) 
+&\propto \prod_{j \ne a} \frac{\beta}{N} I(i_j-) e^{-\frac{\beta}{N}\int S(t)I(t) dt} \gamma^n e^{-\gamma \sum(r_j - i_j)} \\
+\pi(\alpha, \beta | y) 
+&\propto \prod_{j \ne a} \frac{\beta}{\cancel{N}} \cancel{I(i_j-)} e^{-\frac{\beta}{N}\int S(t)I(t) dt} \cancel{\gamma^n e^{-\gamma \sum(r_j - i_j)}} \times \cancel{\frac{\nu_\beta^{\lambda_\beta}}{\Gamma(\lambda_\beta)}}\beta^{\lambda_\beta -1}e^{-\nu_\beta \beta}\\
+&\propto \beta^n e^{-\frac{\beta}{N}\int S(t)I(t) dt} \times \beta^{\lambda_\beta -1}e^{-\nu_\beta \beta} \\
+&\propto \beta^{n+\lambda_\beta - 1} e^{-\beta \left(\frac{1}{N}\int S(t)I(t) dt + \nu_\beta\right)} \\
+&\therefore \\
+f(\beta| ...) &\sim \Gamma\left(n+\lambda_\beta -1, \frac{1}{N}\int S(t)I(t) dt + \nu_\beta\ \right)
+\end{aligned}
+$$
 
 -   For the infection times, the full conditional is non-standard
 

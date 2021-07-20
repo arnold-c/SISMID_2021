@@ -3,10 +3,11 @@ title: 'Module 11: Lesson 2 Lab'
 author: "Callum Arnold"
 date: "7/19/2021"
 output: 
-  html_document:
+  pdf_document:
+    latex_engine: xelatex
     toc: true
-      toc_float: true
-      code_folding: hide
+header-includes:
+  - \usepackage{cancel}
 ---
 
 ```{r setup, include=FALSE}
@@ -15,15 +16,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Background
 
-Suppose that we have data on incubation periods y=(y1,...,yn). We assume that
-the data are *independent* draws from a Gamma distribution with shape α and rate
-β, i.e.
+Suppose that we have data on incubation periods $y=(y_1,…,y_n)$. We assume that
+the data are *independent* draws from a Gamma distribution with shape $\alpha$
+and rate $\beta$, i.e.
 
-yi∼Ga(α,β),(i.i.d.)i=1,...,n.
+$$
+y_i \sim \Gamma(\alpha, \beta) \quad \text{i.i.d.}, i=1, ..., n
+$$
 
 where the Gamma distribution has probability density function:
 
-f(x\|α,β)=βαΓ(α)xα−1exp{−βx},α\>0,β\>0.
+$$
+f(x|α,β)=\frac{β^α}{Γ(α)}x^{α−1}\exp(−βx), \quad α>0,β>0.
+$$
 
 The goal is to make (sampling-based) Bayesian inference for the parameters α and
 β.
@@ -31,26 +36,34 @@ The goal is to make (sampling-based) Bayesian inference for the parameters α an
 # **Exercise 1**
 
 > Assume that α and β are *a priori* independent and assign Gamma distributions
-> with parameters λα and να, and λβ and νβ, respectively. Write down (i.e.
-> express in mathematical terms) the posterior density of interest, i.e.
+> with parameters $λα$ and $να$, and $λβ$ and $νβ$, respectively. Write down
+> (i.e. express in mathematical terms) the posterior density of interest, i.e.
 >
-> π(α,β\|y)∝π(y\|α,β)π(α)π(β)
+> $$
+> π(α,β|y)∝π(y|α,β)π(α)π(β)
+> $$
 >
-> where π(y\|α,β) denotes the likelihood function.
+> where $π(y|α,β)$ denotes the likelihood function.
 
 $$
-y_i \sim \Gamma(\alpha, \beta) \\
-f(x | \alpha, \beta) = \frac{\beta^\alpha}{\Gamma(\alpha)}x^{\alpha - 1}\exp(-\beta x)\\
-\alpha \sim \Gamma(\lambda_\alpha, \nu_\alpha) \\
-\beta \sim \Gamma(\lambda_\beta, \nu_\beta)
+\begin{aligned}
+y_i &\sim \Gamma(\alpha, \beta) \\
+f(x | \alpha, \beta) &= \frac{\beta^\alpha}{\Gamma(\alpha)}x^{\alpha - 1}\exp(-\beta x)\\
+\alpha &\sim \Gamma(\lambda_\alpha, \nu_\alpha) \\
+\beta &\sim \Gamma(\lambda_\beta, \nu_\beta)\
+\end{aligned}
 $$
 
 $$
-\pi(\alpha, \beta | y) \propto \pi(y|\alpha, \beta)\pi(\alpha)\pi(\beta) \\
-\pi(y| \alpha, \beta) = \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \\
-\pi(\alpha, \beta | y) \propto \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \times \pi(\alpha)\pi(\beta) \\
-\pi(\alpha, \beta | y) \propto \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \times  \left(\frac{\nu_\alpha^{\lambda_\alpha}}{\Gamma(\lambda_\alpha)}\alpha^{\lambda_\alpha - 1}\exp(-\nu_\alpha \alpha)\right) \times \left(\frac{\nu_\beta^{\lambda_\beta}}{\Gamma(\lambda_\beta)}\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)\\
-\pi(\alpha, \beta | y) \propto \left(\frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \right) \times \left(\alpha^{\lambda_\alpha - 1}\exp(-\nu_\alpha \alpha)\right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)
+\begin{aligned}
+\pi(\alpha, \beta | y) &\propto 
+\pi(y|\alpha, \beta)\pi(\alpha)\pi(\beta) \\
+\pi(y| \alpha, \beta) 
+&= \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \\
+\pi(\alpha, \beta | y) &\propto \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \times \pi(\alpha)\pi(\beta) \\
+&\propto \frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \times  \left(\frac{\nu_\alpha^{\lambda_\alpha}}{\Gamma(\lambda_\alpha)}\alpha^{\lambda_\alpha - 1}\exp(-\nu_\alpha \alpha)\right) \times \left(\frac{\nu_\beta^{\lambda_\beta}}{\Gamma(\lambda_\beta)}\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)\\
+&\propto \left(\frac{\beta^{n\alpha} \prod_k y_k^{\alpha -1} \exp\left(-\beta \sum y_k\right)}{\{\Gamma(\alpha)\}^n} \right) \times \left(\alpha^{\lambda_\alpha - 1}\exp(-\nu_\alpha \alpha)\right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)
+\end{aligned}
 $$
 
 # **Exercise 2**
@@ -74,10 +87,12 @@ M-H algorithm
 ## Full conditional density of $\beta$
 
 $$
-\pi(\alpha, \beta | y) \propto \left(\beta^{n\alpha} \prod_k \exp\left(-\beta \sum y_k\right) \right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right) \\
-\pi(\alpha, \beta | y) \propto \left(\beta^{n\alpha}  \exp\left(-\beta \sum_{k=1}^n y_k\right) \right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)\\
-\pi(\alpha, \beta | y) \propto \beta^{n\alpha + \lambda_\beta-1} \exp\left[\beta \left(\sum_{k=1}^n y_k + \nu_\beta \right)\right] \\
-\beta|\alpha, y \sim \Gamma\left(n\alpha + \lambda_\beta, \sum_{k=1}^n y_k + \nu_\beta\right)
+\begin{aligned}
+\pi(\alpha, \beta | y) &\propto \left(\beta^{n\alpha} \prod_k \exp\left(-\beta \sum y_k\right) \right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right) \\
+&\propto \left(\beta^{n\alpha}  \exp\left(-\beta \sum_{k=1}^n y_k\right) \right) \times \left(\beta^{\lambda_\beta - 1}\exp(-\nu_\beta \beta)\right)\\
+&\propto \beta^{n\alpha + \lambda_\beta-1} \exp\left[\beta \left(\sum_{k=1}^n y_k + \nu_\beta \right)\right] \\
+\beta|\alpha, y &\sim \Gamma\left(n\alpha + \lambda_\beta, \sum_{k=1}^n y_k + \nu_\beta\right)
+\end{aligned}
 $$
 
 We can see that this looks like a Gamma distribution with the associated shape
@@ -87,20 +102,20 @@ distribution.
 # **Exercise 3**
 
 > Write a `R` function to implement an MCMC algorithm (from scratch!) which
-> samples from the joint posterior distribution π(α,β\|y).
+> samples from the joint posterior distribution $π(α,β|y)$.
 >
 > First, think about what the input (i.e. arguments) the function should have,
-> e.g. a vector corresponding to data y, hyper-parameter values λα, ναetc. Then
-> also think about what the output should be; surely the function should output
-> the posterior samples of α and β. Anything else?
+> e.g. a vector corresponding to data $\mathbf{y}$, hyper-parameter values $λα$,
+> ναetc. Then also think about what the output should be; surely the function
+> should output the posterior samples of $α$ and $β$. Anything else?
 >
 > To get you started, a pseudo-code of this MCMC algorithm is given below:
 >
-> 1.  Choose initial values for α and β;
+> 1.  Choose initial values for $α$ and $β$;
 >
-> 2.  Update α by sampling from π(α\|β,y) using a Gaussian random-walk;
+> 2.  Update $α$ by sampling from $π(α|β,y)$ using a Gaussian random-walk;
 >
-> 3.  Update β by sampling from π(β\|α,y) directly.
+> 3.  Update $β$ by sampling from $π(β|α,y)$ directly.
 >
 > 4.  Go to to Step (b)
 >
@@ -116,14 +131,14 @@ distribution.
 > Test your algorithm is producing sensible results.
 >
 > One way to do this is to first simulate a dataset from a Gamma distribution
-> with some specific values for α and β, eg. `y <- rgamma(100, 4, 2)` wil
+> with some specific values for $α$ and $β$, eg. `y <- rgamma(100, 4, 2)` wil
 > simulate a vector of 100 draws from a Ga(4,2).
 >
 > Then use your MCMC algorithm (in Exercise 3) to sample from the joint
-> posterior distribution of α and β assuming vague priors, e.g. λα=λβ=1 and
-> να=νβ=10−3.
+> posterior distribution of α and β assuming vague priors, e.g. $λα=λβ=1$ and
+> $να=νβ=10−3$.
 >
-> In principle, your marginal posterior distributions (π(α\|y) and π(β\|y))
+> In principle, your marginal posterior distributions ($π(α|y)$ and $π(β|y)$)
 > should be centered around the values you have chosen to simulate the data from
 > (e.g. 4 and 2 in this case).
 
@@ -140,19 +155,19 @@ distribution.
 
 > Now that you have got a working algorithm, can you improve its mixing?
 >
-> One way to do this is to update both α and β at the same time (in a block).
-> This can be done, for example, and as discussed in the lecture, by proposing
-> values drawn from some (bivariate distribution) with density q(α,β) and
-> accept/reject according to the Metropolis-Hastings ratio. There are many
-> choices here, but not all of them will lead to an efficient sampler.
+> One way to do this is to update both $α$ and $β$ at the same time (in a
+> block). This can be done, for example, and as discussed in the lecture, by
+> proposing values drawn from some (bivariate distribution) with density
+> $q(α,β)$ and accept/reject according to the Metropolis-Hastings ratio. There
+> are many choices here, but not all of them will lead to an efficient sampler.
 >
 > Here are a few choices to try:
 >
-> -   Gaussian random-walk in a block, i.e. propose values for α and β drawn
->     from a bivariate Normal distribution with mean the current values of α and
->     β and some (2×2) variance-covariance matrix, and then accept/reject using
->     the Metropolis-Hastings ratio.
+> -   Gaussian random-walk in a block, i.e. propose values for $α$ and $β$ drawn
+>     from a bivariate Normal distribution with mean the current values of $α$
+>     and $β$ and some (2×2) variance-covariance matrix, and then accept/reject
+>     using the Metropolis-Hastings ratio.
 >
-> -   Gaussian approximation to the posterior distribution π(α,β\|y). (Hint: use
->     the command `optim` to find the values of α and β that maximise the
->     posterior density).
+> -   Gaussian approximation to the posterior distribution $π(α,β|y)$. (Hint:
+>     use the command `optim` to find the values of $α$ and $β$ that maximise
+>     the posterior density).
