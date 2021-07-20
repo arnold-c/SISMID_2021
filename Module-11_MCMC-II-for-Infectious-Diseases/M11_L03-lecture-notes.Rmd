@@ -1,0 +1,23 @@
+---
+title: "Module 11: Lesson 3 Lecture Notes"
+author: "Callum Arnold"
+date: "7/19/2021"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+header-includes:
+  - \usepackage{cancel}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Non-Markov SIR epidemic model
+
+# Debugging tips
+
+# What to do with MCMC output
+
+# What can be estimated
