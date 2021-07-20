@@ -6,6 +6,7 @@ output:
   pdf_document:
     latex_engine: xelatex
     toc: true
+    toc_depth: 4
 header-includes:
   - \usepackage{cancel}
 ---
