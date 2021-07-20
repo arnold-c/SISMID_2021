@@ -1,7 +1,7 @@
 ---
 title: "Module 11: Lesson 2 Lecture Notes"
 author: "Callum Arnold"
-date: "7/19/2021"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   pdf_document:
     latex_engine: xelatex

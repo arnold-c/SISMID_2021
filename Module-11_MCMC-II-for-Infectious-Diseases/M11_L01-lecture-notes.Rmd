@@ -1,7 +1,7 @@
 ---
 title: "Module 11: Lesson 1 Lecture Notes"
 author: "Callum Arnold"
-date: "7/19/2021"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   pdf_document:
     latex_engine: xelatex
@@ -250,7 +250,7 @@ Algorithm:
 
     -   $T\sim \text{Exp}(\beta SI/N)$
 
-        -   Draw from the infectious period distribution
+        -   Draw from the time to next infection distribution
 
     -   $R=\min(r)$
 
@@ -264,6 +264,50 @@ Algorithm:
         -   Add new removal time $r \leftarrow (t+T+c)$
 
         -   Update current time $t=t+T$
+
+    -   else:
+
+        -   $I = I-1$
+
+        -   Remove minimal element of $r$, our vector of removal times
+
+        -   Update current time $t = R$ so that it equals the time of the next
+            removal (i.e. the one that just happened)
+
+-   Non-constant infectious period
+
+    -   Generate a random sample from the distribution $T_I$ for the infectious
+        period of an individual who has just become infected
+
+    -   While $i>0$:
+
+        -   $T\sim \text{Exp}(\beta SI/N)$
+
+            -   Draw from the time to next infection distribution
+
+        -   $R=\min(r)$
+
+            -   Time of the next removal
+
+        -   if $t + T < R$ (current time + potential time to next infection \<
+            time of next removal)
+
+            -   $S = S-1, I = I+1$
+
+            -   Generate $c \sim T_I$
+
+            -   Add new removal time $r \leftarrow (t+T+c)$
+
+            -   Update current time $t=t+T$
+
+        -   else:
+
+            -   $I = I-1$
+
+            -   Remove minimal element of $r$, our vector of removal times
+
+            -   Update current time $t = R$ so that it equals the time of the
+                next removal (i.e. the one that just happened)
 
 # Discussion
 
