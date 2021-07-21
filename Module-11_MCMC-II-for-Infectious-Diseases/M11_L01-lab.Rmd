@@ -294,11 +294,11 @@ simSIR.Non.Markov.gamma <- function(N, beta, gamma, delta) {
 }
 ```
 
-# **Exercise 2**
+# Exercise 2
 
 > Simulate realisations from a Markovian SIR using the
-> function `simSIR.Markov` and make sure that you understand the output. You may
-> assume that size of the population size is N=21 (i.e. 20 susceptibles and 1
+> function `simSIR.Markov` and make sure that you understand the output. You may
+> assume that size of the population size is N=21 (i.e. 20 susceptibles and 1
 > initial infective). In addition, you could try different values for (β,γ),
 > e.g. (0.9,1),(2,1) and (4,1).
 
@@ -318,7 +318,7 @@ map2(
 )
 ```
 
-# **Exercise 3**
+# Exercise 3
 
 > Modify the existing functions in `simulation.R` to record the *final size* and
 > the *duration* of the epidemic as part of the functions' output.
@@ -666,12 +666,12 @@ pmap(
 )
 ```
 
-# **Exercise 4**
+# Exercise 4
 
-> Derive a simulation-based estimate of the distribution of the *final size* of
-> a Markovian SIR model for different values of R0, e.g. R0=0.9, R0=1.5 and
-> R0=4. Furthermore, do the same for the non-Markovian models, e.g. for a
-> constant and a Gamma infectious period. **Hint**: You may find it useful to
+> Derive a simulation-based estimate of the distribution of the *final size* of
+> a Markovian SIR model for different values of R0, e.g. R0=0.9, R0=1.5 and
+> R0=4. Furthermore, do the same for the non-Markovian models, e.g. for a
+> constant and a Gamma infectious period. **Hint**: You may find it useful to
 > write a loop which will iterate the following steps for a number of times:
 >
 > 1.  Simulate a realisation from the epidemic model;
@@ -690,7 +690,7 @@ theme_set(theme_minimal())
 ```
 
 ```{r}
-SIR_final_size_reps <- function(reps, r0, N, beta, model, combine_lists = FALSE){
+SIR_final_size_reps <- function(reps, r0, N, beta, constant = FALSE, ..., model, combine_lists = FALSE){
   
   # Run a number of simulations
   list_of_tibbles <- pmap(
@@ -703,28 +703,50 @@ SIR_final_size_reps <- function(reps, r0, N, beta, model, combine_lists = FALSE)
         .l = list(r0 = r0),
         .f = function(r0){
           rep <- reps
-          gamma <- beta / r0
           model <- model
           
-          # Can't input model as an argument to map/functions in general, as it
-          # is a function itself, so instead need to use rlang::exec() to 
-          # execute it!
-          model_output <- rlang::exec(
-            "model",
-            N = N, beta = beta, gamma = gamma
+          if (isFALSE(constant)){
+            gamma <- beta / r0
+            
+            # Can't input model as an argument to map/functions in general, as it
+            # is a function itself, so instead need to use rlang::exec() to 
+            # execute it!
+            model_output <- rlang::exec(
+              "model",
+              N = N, beta = beta, gamma = gamma, ...
+              )
+            
+            # Create a dataframe of the important 
+            tibble(
+              id = rep,
+              R_0 = r0,
+              beta = beta,
+              gamma = gamma,
+              fin_size = model_output$fin_size
             )
           
-          # Create a dataframe of the important 
-          tibble(
-            id = rep,
-            R_0 = r0,
-            beta = beta,
-            gamma = gamma,
-            fin_size = model_output$fin_size
-          )
+          } else {
+            k <- r0 / beta
+            
+            # Can't input model as an argument to map/functions in general, as it
+            # is a function itself, so instead need to use rlang::exec() to 
+            # execute it!
+            model_output <- rlang::exec(
+              "model",
+              N = N, beta = beta, k = k
+              )
+            
+            # Create a dataframe of the important 
+            tibble(
+              id = rep,
+              R_0 = r0,
+              beta = beta,
+              k = k,
+              fin_size = model_output$fin_size
+            )
+          }
+        
         })
-    
-      
     })
   
   if (combine_lists == TRUE){
@@ -733,6 +755,56 @@ SIR_final_size_reps <- function(reps, r0, N, beta, model, combine_lists = FALSE)
 
 }
 ```
+
+```{r}
+SIR_Markov_alt_reps <- SIR_final_size_reps(
+  reps = 1:10,
+  r0 = seq(1, 10, 0.1),
+  N = 100,
+  beta = 1,
+  constant = FALSE,
+  model = simSIR.Markov.alternative,
+  combine_lists = TRUE
+)
+```
+
+```{r}
+SIR_Markov_alt_reps %>% 
+  mutate(id = as.factor(as.numeric(id))) %>% 
+  ggplot(aes(x = R_0, y = fin_size)) +
+  geom_point(aes(color = id), alpha = 0.4) +
+  geom_smooth() +
+  theme(legend.position = "none") +
+  hrbrthemes::scale_colour_ipsum()
+```
+
+
+## SIR non-Markov constant
+
+```{r}
+SIR_non_Markov_const_reps <- SIR_final_size_reps(
+  reps = 1:10,
+  r0 = seq(1, 10, 0.1),
+  N = 100,
+  beta = 1,
+  constant = TRUE,
+  model = simSIR.Non.Markov.constant,
+  combine_lists = TRUE
+)
+```
+
+```{r}
+SIR_non_Markov_const_reps %>% 
+  mutate(id = as.factor(as.numeric(id))) %>% 
+  ggplot(aes(x = R_0, y = fin_size)) +
+  geom_point(aes(color = id), alpha = 0.4) +
+  geom_smooth() +
+  theme(legend.position = "none") +
+  hrbrthemes::scale_colour_ipsum()
+```
+
+
+## SIR non-Markov Gamma
 
 ```{r}
 SIR_Markov_alt_reps <- SIR_final_size_reps(
@@ -755,17 +827,12 @@ SIR_Markov_alt_reps %>%
   hrbrthemes::scale_colour_ipsum()
 ```
 
-
-## SIR non-Markov constant
-
-## SIR non-Markov Gamma
-
-# **Exercise 5**
+# Exercise 5
 
 > Repeat the above exercise but derive, by simulation, the distribution of the
 > *duration* of the epidemic instead of the *final size*.
 
-# **Exercise 6**
+# Exercise 6
 
 > Write a function in R to simulate from a non-Markovian stochastic epidemic
 > model where the infectious period is assumed to follow a Weibull distribution.
@@ -776,7 +843,7 @@ SIR_Markov_alt_reps %>%
 >
 > Type `?Weibull` to find out how to simulate from a Weibull distribution.
 
-# **Exercise 7**
+# Exercise 7
 
 > Write a function to simulate from an epidemic model which involves a fixed
 > latent period, i.e. write a function to simulate from a stochastic SEIR model.
