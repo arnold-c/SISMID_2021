@@ -684,35 +684,81 @@ pmap(
 
 ## SIR Markov
 
-```{r}
-library(ggplot2)
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+theme_set(theme_minimal())
 ```
 
 ```{r}
-test <- map_df(
-  .x = seq(0.5, 10, by = 0.1),
-  .f = function(.x){
-    gamma <- 1 / .x
-    N <- 1000
-    fin_size <- simSIR.Markov.alternative(
-        N = N, beta = 1, gamma = gamma
-        )$fin_size
-    fin_prop = fin_size / N
+SIR_final_size_reps <- function(reps, r0, N, beta, model, combine_lists = FALSE){
+  
+  # Run a number of simulations
+  list_of_tibbles <- pmap(
+    .l = list(reps),
+    .f = function(reps){
+      
+      # Create the table of final size values for each R0 (within a single 
+      # simulation)
+      pmap_dfr(
+        .l = list(r0 = r0),
+        .f = function(r0){
+          rep <- reps
+          gamma <- beta / r0
+          model <- model
+          
+          # Can't input model as an argument to map/functions in general, as it
+          # is a function itself, so instead need to use rlang::exec() to 
+          # execute it!
+          model_output <- rlang::exec(
+            "model",
+            N = N, beta = beta, gamma = gamma
+            )
+          
+          # Create a dataframe of the important 
+          tibble(
+            id = rep,
+            R_0 = r0,
+            beta = beta,
+            gamma = gamma,
+            fin_size = model_output$fin_size
+          )
+        })
     
-    return(data.frame(
-      R_0 = .x,
-      N = N,
-      fin_size = simSIR.Markov.alternative(
-        N = 1000, beta = 1, gamma = gamma
-        )$fin_size,
-      fin_prop = fin_prop
-    ))
+      
+    })
+  
+  if (combine_lists == TRUE){
+    bind_rows(list_of_tibbles, .id = "id")
   }
-)
 
-ggplot(test, aes(x = R_0, y = fin_size)) +
-  geom_bar(stat = "identity")
+}
 ```
+
+```{r}
+SIR_Markov_alt_reps <- SIR_final_size_reps(
+  reps = 1:10,
+  r0 = seq(1, 10, 0.1),
+  N = 100,
+  beta = 1,
+  model = simSIR.Markov.alternative,
+  combine_lists = TRUE
+)
+```
+
+```{r}
+SIR_Markov_alt_reps %>% 
+  mutate(id = as.factor(as.numeric(id))) %>% 
+  ggplot(aes(x = R_0, y = fin_size)) +
+  geom_point(aes(color = id), alpha = 0.4) +
+  geom_smooth() +
+  theme(legend.position = "none") +
+  hrbrthemes::scale_colour_ipsum()
+```
+
+
+## SIR non-Markov constant
+
+## SIR non-Markov Gamma
 
 # **Exercise 5**
 
