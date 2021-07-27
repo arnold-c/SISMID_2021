@@ -1,7 +1,16 @@
 ---
 title: "Monte Carlo Notes"
 subtitle: "M08: Lecture 4 (Pages 8-14)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 author: "Callum Arnold"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 4
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{amsmath}
 ---
 
 # Importance sampling
@@ -19,8 +28,7 @@ E_p[f(X)] &= \int f(x)p(x) dx \\
 &= E_q[z(x)] \\
 &\approx \frac{1}{n} \sum_{i=1}^n z(x_i) \quad \text{By LLN} \\
 \text{where: } x_1, ..., x_n &\overset{i.i.d}{\sim} q(x) \\
-&\approx \frac{1}{n} \sum_{i=1}^n f(x_i) \underbrace{\frac{p(x_i)}{q(x_i)}}_{W_i = \text{Weights, or}\\
-\text{likelihood ratio!}} \\
+&\approx \frac{1}{n} \sum_{i=1}^n f(x_i) \underbrace{\frac{p(x_i)}{q(x_i)}}_{\substack{W_i = \text{Weights, or} \\ \text{likelihood ratio!}}} \\
 &\approx \frac{\sum_{i=1}^n f(x_i) \frac{p(x_i)}{g(x_i)}}{\sum_{i=1}^n \frac{p(x_i)}{g(x_i)}}
 \end{aligned}
 $$

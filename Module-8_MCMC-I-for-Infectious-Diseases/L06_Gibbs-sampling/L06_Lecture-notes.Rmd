@@ -1,7 +1,17 @@
 ---
 title: "Gibbs Sampling"
 subtitle: "M08: Lecture 6 (Pages 18-20)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 author: "Callum Arnold"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 4
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{amsmath}
+  - \usepackage{amsbsy}
 ---
 
 # Multivariate targets
@@ -18,8 +28,10 @@ author: "Callum Arnold"
         matrix
 
 $$
-P_1 \quad MH_1 : y = x_n + \epsilon_n, \quad \epsilon_n \sim \text{Unif}[-\sigma_1, \sigma_1] \quad \text{where: } \sigma_1 = 5.0 \\
-P_2 \quad MH_2 : y = x_n + \epsilon_n, \quad \epsilon_n \sim \text{Unif}[-\sigma_2, \sigma_2] \quad \text{where: } \sigma_2 = 0.5 \\
+\begin{aligned}
+P_1 \quad MH_1 &: y = x_n + \epsilon_n, \quad \epsilon_n \sim \text{Unif}[-\sigma_1, \sigma_1] \quad \text{where: } \sigma_1 = 5.0 \\
+P_2 \quad MH_2 &: y = x_n + \epsilon_n, \quad \epsilon_n \sim \text{Unif}[-\sigma_2, \sigma_2] \quad \text{where: } \sigma_2 = 0.5
+\end{aligned}
 $$
 
 -   Let $X_0=\text{initial state}$
@@ -39,7 +51,7 @@ $$
 -   This is OK because we can think of the Markov chain going from
     $X_0 \to X_2 \to X_4 \to ...$
 
-    -   $\mathbf{\pi^T}P = \underbrace{\mathbf{\pi^T}P_1}_{\mathbf{\pi^T}}P_2 = \underbrace{\mathbf{\pi^T}P_2}_{\mathbf{\pi^T}} = \mathbf{\pi^T}$
+    -   $\pmb{\pi^T} P = \underbrace{\pmb{\pi^T}P_1}_{\pmb{\pi^T}}P_2 = \underbrace{\pmb{\pi^T}P_2}_{\pmb{\pi^T}} = \pmb{\pi^T}$
         which preserves the global balance
 
 -   This is pretty similar to Gibbs sampling (applying 2 Markov chains
@@ -48,7 +60,7 @@ $$
 -   Another system would be to create a probability vector and randomly choose
     which kernel to advance with
 
-    -   $\mathbf{\alpha}=\alpha_1, ..., \alpha_m$
+    -   $\pmb{\alpha}=\alpha_1, ..., \alpha_m$
 
     -   $\mathbf{R}=\sum_{i=1}^m \alpha_i \mathbf{P_i}$
 
@@ -71,7 +83,7 @@ $$
 
 -   You could try and use the standard MH with random walk
 
-    -   $\mathbf{y}_n = \mathbf{x}_n + \mathbf{\epsilon}_n, \quad \mathbf{\epsilon}_n \sim \text{Multivariate } \mathcal{N}(\mathbf{0}, \mathbf{\sigma})$
+    -   $\mathbf{y}_n = \mathbf{x}_n + \pmb{\epsilon}_n, \quad \pmb{\epsilon}_n \sim \text{Multivariate } \mathcal{N}(\mathbf{0}, \pmb{\sigma})$
 
     -   Doesn't work well in high dimensions
 
@@ -79,7 +91,7 @@ $$
 
 -   In practice, we often update one component at a time
 
-    -   $MH_1: \quad \mathbf{x}=(\underbrace{x_1}_{\text{update} \\ \text{comp 1}}, x_2, ..., x_m)$
+    -   $MH_1: \quad \mathbf{x}=(\underbrace{x_1}_{\substack{\text{update} \\ \text{comp 1}}}, x_2, ..., x_m)$
 
     -   $\mathbf{x}_{current} \to \mathbf{x}_{proposed}$ but these two only
         differ in the 1st component
@@ -89,7 +101,7 @@ $$
         -   Now you are sampling at time $t+1$ for $x_1$ and $t$ for everything
             else (you haven't updated the other values yet!
 
-        -   $\text{Sample } x_2^{(t+1)} \sim f_2(x_2 | x_1^{(t+1)}, x_3^{(t)}, ..., x_m^{(t)}) \\ ... \\ \text{Sample } x_m^{(t+1)} \sim f_m(x_m | \mathbf{x}_{-m}^{(t)})$
+        -   $\begin{aligned}\text{Sample } x_2^{(t+1)} &\sim f_2(x_2 | x_1^{(t+1)}, x_3^{(t)}, ..., x_m^{(t)}) \\ &... \\ \text{Sample } x_m^{(t+1)} &\sim f_m(x_m | \mathbf{x}_{-m}^{(t)})\end{aligned}$
 
 -   To see why this works, let's quickly remember our MH acceptance ratio in
     continuous form
@@ -113,5 +125,6 @@ a(\mathbf{x}^{\text{cur}}, \mathbf{x}^{\text{new}}) &= \min\left\{\frac{f(\mathb
 \end{aligned}
 $$
 
--   We can see that because we have the full conditional, it always accepts, so
-    we don't need to compute the acceptance ratio
+-   We can see that because we have the full conditional
+    ($f_i(x_i|\mathbf{x}_{-i}^{\text{cur}})$), it always accepts, so we don't
+    need to compute the acceptance ratio

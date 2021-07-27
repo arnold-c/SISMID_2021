@@ -1,7 +1,16 @@
 ---
 title: "Metropolis-Hastings Notes"
 subtitle: "M08: Lecture 5 (Pages 14-18)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 author: "Callum Arnold"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 4
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{amsmath}
 ---
 
 # Ergodic Theorem
@@ -13,9 +22,9 @@ author: "Callum Arnold"
     -   Let $f : E \to \mathbb{R}$ be an arbitrary function that maps Markov
         chain states to real numbers
 
-        -   Satisfying $\sum_{i \in E} |f(i)|\pi_i < \infin$
+        -   Satisfying $\sum_{i \in E} |f(i)|\pi_i < \infty$
 
-    -   $\underset{N \to \infin}{\lim} \underbrace{\frac{1}{N} \sum_{k=1}^N f(X_k)}_{\text{time average}} = \sum_{i \in E} f(i) \pi_i = \underbrace{E_\pi[f(X)]}_{\text{space average}}$
+    -   $\underset{N \to \infty}{\lim} \underbrace{\frac{1}{N} \sum_{k=1}^N f(X_k)}_{\text{time average}} = \sum_{i \in E} f(i) \pi_i = \underbrace{E_\pi[f(X)]}_{\text{space average}}$
 
         -   Average of the states plugged into the function is equal to the
             expectation (average) of the stationary distribution with respect to
@@ -67,7 +76,7 @@ value $X_0 = x_0$, we construct a Markov chain using the following rules:
 2.  **for** $n=0 \to N$:
 
     1.  Simulate candidate value
-        $Y \sim \underbrace{q(j|X_n = i)}_{\text{proposal transition}\\\text{ density / jumping density}}$
+        $Y \sim \underbrace{q(j|X_n = i)}_{\substack{\text{proposal transition} \\ \text{ density / jumping density}}}$
         Suppose $Y=j$
 
     2.  Compute the Metropolis Hastings **acceptance probability**
